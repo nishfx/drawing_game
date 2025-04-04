@@ -19,9 +19,9 @@ function connectSocket() {
         requestLobbyList(); // Request list if already connected
         return;
     }
-    // --- Connect specifying the path (Assuming Nginx removes /game prefix) ---
-    console.log("Attempting to connect socket at /socket.io");
-    socket = io({ path: '/socket.io' }); // Use path without /game
+    // --- Connect specifying the path - Add /game prefix back ---
+    console.log("Attempting to connect socket at /game/socket.io");
+    socket = io({ path: '/game/socket.io' }); // Use path WITH /game
     // --- End Connect ---
 
     socket.on('connect', () => {
@@ -48,8 +48,8 @@ function connectSocket() {
     // Listen for creation/join responses
     socket.on('lobby created', ({ lobbyId }) => {
         console.log('Lobby created successfully:', lobbyId);
-        // --- Redirect path (Assuming Nginx maps /game/lobby -> /lobby) ---
-        window.location.href = `/lobby?id=${lobbyId}`; // Path without /game
+        // --- Redirect path - Add /game prefix back ---
+        window.location.href = `/game/lobby?id=${lobbyId}`; // Path WITH /game
         // --- End Redirect ---
     });
 
@@ -61,8 +61,8 @@ function connectSocket() {
 
      socket.on('join success', ({ lobbyId }) => {
         console.log('Joined lobby successfully:', lobbyId);
-         // --- Redirect path (Assuming Nginx maps /game/lobby -> /lobby) ---
-        window.location.href = `/lobby?id=${lobbyId}`; // Path without /game
+         // --- Redirect path - Add /game prefix back ---
+        window.location.href = `/game/lobby?id=${lobbyId}`; // Path WITH /game
         // --- End Redirect ---
     });
 

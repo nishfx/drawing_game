@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lobby - Drawing Game</title>
-    <!-- Adjust path for CSS (Assuming Nginx maps /game/style.css -> /style.css) -->
-    <link rel="stylesheet" href="/style.css">
+    <!-- Add /game prefix back -->
+    <link rel="stylesheet" href="/game/style.css">
     <!-- Styles specific to the lobby page -->
     <!-- ... (styles remain the same) ... -->
     <style>
@@ -46,10 +46,8 @@
         </div>
     </div>
 
-    <!-- Adjust paths for JS -->
-    <!-- Load Socket.IO client from the correct path (assuming Nginx removes /game prefix) -->
-    <script src="/socket.io/socket.io.js"></script>
-    <!-- Load lobby JS (Assuming Nginx maps /game/js/lobbyClient.js -> /js/lobbyClient.js) -->
-    <script src="/js/lobbyClient.js" type="module"></script>
+    <!-- Adjust paths for JS - Add /game prefix back -->
+    <script src="/game/socket.io/socket.io.js"></script>
+    <script src="/game/js/lobbyClient.js" type="module"></script>
 </body>
 </html>

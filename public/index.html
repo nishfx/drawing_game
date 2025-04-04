@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drawing Game - Join or Create</title>
-    <!-- Adjust path for CSS (Assuming Nginx maps /game/style.css -> /style.css) -->
-    <link rel="stylesheet" href="/style.css">
+    <!-- Add /game prefix back -->
+    <link rel="stylesheet" href="/game/style.css">
     <!-- Styles specific to the start page -->
     <!-- ... (styles remain the same) ... -->
     <style>
@@ -70,10 +70,8 @@
         <button type="button" id="back-to-username-btn" class="secondary" style="margin-top: 15px;">Back</button>
     </div>
 
-    <!-- Adjust paths for JS -->
-    <!-- Load Socket.IO client from the correct path (assuming Nginx removes /game prefix) -->
-    <script src="/socket.io/socket.io.js"></script>
-    <!-- Load main JS (Assuming Nginx maps /game/js/main.js -> /js/main.js) -->
-    <script src="/js/main.js" type="module"></script>
+    <!-- Adjust paths for JS - Add /game prefix back -->
+    <script src="/game/socket.io/socket.io.js"></script>
+    <script src="/game/js/main.js" type="module"></script>
 </body>
 </html>

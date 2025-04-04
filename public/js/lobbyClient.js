@@ -45,9 +45,9 @@ function initializeLobby() {
 
 function setupSocketConnection(lobbyId, username) {
     if (socket && socket.connected) socket.disconnect();
-    // --- Specify path for Socket.IO connection (Assuming Nginx removes /game prefix) ---
-    console.log("Attempting to connect socket at /socket.io");
-    socket = io({ path: '/socket.io' }); // Use path without /game
+    // --- Specify path for Socket.IO connection - Add /game prefix back ---
+    console.log("Attempting to connect socket at /game/socket.io");
+    socket = io({ path: '/game/socket.io' }); // Use path WITH /game
     // --- End Specify ---
 
     // --- Socket Event Listeners ---
@@ -87,7 +87,7 @@ function setupSocketConnection(lobbyId, username) {
         console.error('Join lobby failed:', reason);
         if (!hasJoined) {
             alert(`Failed to join lobby: ${reason}`);
-            window.location.href = '/'; // Redirect to base path (index.html)
+            window.location.href = '/game/'; // Redirect to game base path
         } else { console.warn("Received 'join failed' potentially after successful join."); }
     });
 
@@ -116,8 +116,8 @@ function setupSocketConnection(lobbyId, username) {
     socket.on('game starting', ({ lobbyId: confirmedLobbyId }) => {
         console.log(`Game starting for ${confirmedLobbyId}!`);
         alert("Game is starting!");
-        // --- Redirect path (Assuming Nginx maps /game/game -> /game) ---
-        window.location.href = `/game?lobbyId=${confirmedLobbyId}`; // Use path without /game prefix
+        // --- Redirect path - Add /game prefix back ---
+        window.location.href = `/game/game?lobbyId=${confirmedLobbyId}`; // Use path WITH /game prefix
         // --- End Redirect ---
     });
     socket.on('system message', (message) => { ChatUI.addChatMessage({ text: message }, 'system'); });
@@ -149,7 +149,7 @@ function updateLobbyUI(state) {
 function handleFatalError(message) {
     console.error("Fatal Error:", message);
     alert(`Error: ${message}. Redirecting.`);
-    window.location.href = '/'; // Redirect to base path (index.html)
+    window.location.href = '/game/'; // Redirect to game base path
 }
 
 // --- Initialize ---
