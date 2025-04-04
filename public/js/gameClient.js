@@ -5,8 +5,8 @@ import * as VotingUI from './ui/votingUI.js'; // Import needed UI module
 
 console.log("Game Client script loaded.");
 
-// --- Specify path for Socket.IO connection ---
-const socket = io({ path: '/game/socket.io' });
+// --- Specify path for Socket.IO connection (Assuming Nginx removes /game prefix) ---
+const socket = io({ path: '/socket.io' }); // Use path without /game
 // --- End Specify ---
 
 let myPlayerId = null;
@@ -53,7 +53,7 @@ function initializeGame() {
     });
     socket.on('connection rejected', (reason) => {
         console.error('Game Rejected:', reason); alert(`Cannot join game: ${reason}`);
-        window.location.href = '/game/'; // Redirect to game start page
+        window.location.href = '/'; // Redirect to base path (index.html)
     });
     socket.on('my info', (player) => { myPlayerId = player.id; console.log("My game info:", player); });
     socket.on('update player list', (players) => { UIManager.updatePlayerList(players, myPlayerId); });
@@ -124,7 +124,7 @@ function initializeGame() {
 function handleFatalError(message) {
     console.error("Fatal Error:", message);
     alert(`Error: ${message}. Redirecting to start page.`);
-    window.location.href = '/game/'; // Redirect to game start page
+    window.location.href = '/'; // Redirect to base path (index.html)
 }
 
 // --- Initialize ---

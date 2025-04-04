@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drawing Game</title>
-    <!-- Adjust path for CSS -->
-    <link rel="stylesheet" href="/game/style.css">
+    <!-- Adjust path for CSS (Assuming Nginx maps /game/style.css -> /style.css) -->
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <h1>Drawing Game</h1>
@@ -56,7 +56,9 @@
     </div> <!-- End main-layout -->
 
     <!-- Adjust paths for JS -->
-    <script src="/game/socket.io/socket.io.js"></script>
-    <script src="/game/js/gameClient.js" type="module"></script>
+     <!-- Load Socket.IO client from the correct path (assuming Nginx removes /game prefix) -->
+    <script src="/socket.io/socket.io.js"></script>
+     <!-- Load game JS (Assuming Nginx maps /game/js/gameClient.js -> /js/gameClient.js) -->
+    <script src="/js/gameClient.js" type="module"></script>
 </body>
 </html>

@@ -13,8 +13,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
-// --- Correct Socket.IO path ---
-const io = new Server(server, { path: '/game/socket.io' }); // Tell server where client expects Socket.IO
+// --- Correct Socket.IO path (Assuming Nginx removes /game prefix) ---
+const io = new Server(server, { path: '/socket.io' }); // Use path without /game
 // --- End Correct ---
 
 const PORT = process.env.PORT || 3000; // Node listens on 3000
@@ -27,6 +27,9 @@ const publicDirectoryPath = path.join(__dirname, '../public');
 app.use(express.static(publicDirectoryPath));
 
 // --- Specific HTML Routes ---
+// These assume Nginx maps /game/ -> /, /game/lobby -> /lobby, /game/game -> /game
+// If Nginx *doesn't* remove the prefix for these, these routes won't be hit.
+// But if it *does* remove the prefix, these should work.
 
 // Root path '/' (after Nginx rewrite from /game/) serves the start page index.html
 app.get('/', (req, res) => {
@@ -44,11 +47,6 @@ app.get('/game', (req, res) => {
     res.sendFile(path.join(publicDirectoryPath, 'game.html'));
 });
 
-// --- REMOVED the redirect from root ---
-// app.get('/', (req, res) => {
-//     res.redirect('/game/'); // This was causing the loop
-// });
-
 
 const lobbyManager = new LobbyManager(io);
 
@@ -59,7 +57,8 @@ io.on('connection', (socket) => {
     socket.on('request lobby list', () => lobbyManager.sendLobbyList(socket));
     socket.on('create lobby', (username) => lobbyManager.createLobby(socket, username));
     socket.on('join lobby', ({ lobbyId, username }) => lobbyManager.joinLobby(socket, lobbyId, username));
-    socket.on('join game room', ({ lobbyId, username }) => lobbyManager.rejoinGame(socket, lobbyId, username)); // Handle game rejoin
+    // Assuming gameClient connects to /socket.io, rejoinGame should work without changes here
+    socket.on('join game room', ({ lobbyId, username }) => lobbyManager.rejoinGame(socket, lobbyId, username));
 
     // --- Lobby & Game Events (Forwarding Logic) ---
     const forwardEvent = (eventName) => {

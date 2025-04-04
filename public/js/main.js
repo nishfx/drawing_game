@@ -19,9 +19,9 @@ function connectSocket() {
         requestLobbyList(); // Request list if already connected
         return;
     }
-    // --- Connect specifying the path ---
-    console.log("Attempting to connect socket at /game/socket.io");
-    socket = io({ path: '/game/socket.io' }); // Tell client where Socket.IO is served by Nginx
+    // --- Connect specifying the path (Assuming Nginx removes /game prefix) ---
+    console.log("Attempting to connect socket at /socket.io");
+    socket = io({ path: '/socket.io' }); // Use path without /game
     // --- End Connect ---
 
     socket.on('connect', () => {
@@ -48,9 +48,9 @@ function connectSocket() {
     // Listen for creation/join responses
     socket.on('lobby created', ({ lobbyId }) => {
         console.log('Lobby created successfully:', lobbyId);
-        // --- Add /game prefix ---
-        window.location.href = `/game/lobby?id=${lobbyId}`;
-        // --- End Add ---
+        // --- Redirect path (Assuming Nginx maps /game/lobby -> /lobby) ---
+        window.location.href = `/lobby?id=${lobbyId}`; // Path without /game
+        // --- End Redirect ---
     });
 
     socket.on('lobby creation failed', (reason) => {
@@ -61,9 +61,9 @@ function connectSocket() {
 
      socket.on('join success', ({ lobbyId }) => {
         console.log('Joined lobby successfully:', lobbyId);
-         // --- Add /game prefix ---
-        window.location.href = `/game/lobby?id=${lobbyId}`;
-        // --- End Add ---
+         // --- Redirect path (Assuming Nginx maps /game/lobby -> /lobby) ---
+        window.location.href = `/lobby?id=${lobbyId}`; // Path without /game
+        // --- End Redirect ---
     });
 
      socket.on('join failed', (reason) => {
@@ -186,3 +186,8 @@ function handleJoinLobbyClick(lobbyId) {
 
 // --- Initial State ---
 lobbyListSection.style.display = 'none';
+// Attempt to retrieve username from session storage on load
+const storedUsername = sessionStorage.getItem('drawingGameUsername');
+if (storedUsername && usernameInput) {
+    usernameInput.value = storedUsername;
+}

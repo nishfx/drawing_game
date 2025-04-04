@@ -45,9 +45,9 @@ function initializeLobby() {
 
 function setupSocketConnection(lobbyId, username) {
     if (socket && socket.connected) socket.disconnect();
-    // --- Specify path for Socket.IO connection ---
-    console.log("Attempting to connect socket at /game/socket.io");
-    socket = io({ path: '/game/socket.io' });
+    // --- Specify path for Socket.IO connection (Assuming Nginx removes /game prefix) ---
+    console.log("Attempting to connect socket at /socket.io");
+    socket = io({ path: '/socket.io' }); // Use path without /game
     // --- End Specify ---
 
     // --- Socket Event Listeners ---
@@ -87,7 +87,7 @@ function setupSocketConnection(lobbyId, username) {
         console.error('Join lobby failed:', reason);
         if (!hasJoined) {
             alert(`Failed to join lobby: ${reason}`);
-            window.location.href = '/game/'; // Redirect to game base path
+            window.location.href = '/'; // Redirect to base path (index.html)
         } else { console.warn("Received 'join failed' potentially after successful join."); }
     });
 
@@ -113,7 +113,13 @@ function setupSocketConnection(lobbyId, username) {
     socket.on('lobby chat message', (msgData) => { ChatUI.addChatMessage(msgData); });
     socket.on('lobby draw update', (drawData) => { CanvasManager.drawExternalCommand(drawData); });
     socket.on('promoted to host', () => { console.log("Promoted to host!"); isHost = true; ChatUI.addChatMessage({ text: "You are now the host." }, 'system'); if(startGameBtn) startGameBtn.style.display = 'block'; });
-    socket.on('game starting', ({ lobbyId: confirmedLobbyId }) => { console.log(`Game starting for ${confirmedLobbyId}!`); alert("Game is starting!"); window.location.href = `/game/game?lobbyId=${confirmedLobbyId}`; }); // Use /game/game
+    socket.on('game starting', ({ lobbyId: confirmedLobbyId }) => {
+        console.log(`Game starting for ${confirmedLobbyId}!`);
+        alert("Game is starting!");
+        // --- Redirect path (Assuming Nginx maps /game/game -> /game) ---
+        window.location.href = `/game?lobbyId=${confirmedLobbyId}`; // Use path without /game prefix
+        // --- End Redirect ---
+    });
     socket.on('system message', (message) => { ChatUI.addChatMessage({ text: message }, 'system'); });
 
 } // End of setupSocketConnection
@@ -143,7 +149,7 @@ function updateLobbyUI(state) {
 function handleFatalError(message) {
     console.error("Fatal Error:", message);
     alert(`Error: ${message}. Redirecting.`);
-    window.location.href = '/game/'; // Redirect to game base path
+    window.location.href = '/'; // Redirect to base path (index.html)
 }
 
 // --- Initialize ---

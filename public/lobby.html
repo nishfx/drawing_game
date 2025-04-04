@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lobby - Drawing Game</title>
-    <!-- Adjust path for CSS -->
-    <link rel="stylesheet" href="/game/style.css">
+    <!-- Adjust path for CSS (Assuming Nginx maps /game/style.css -> /style.css) -->
+    <link rel="stylesheet" href="/style.css">
+    <!-- Styles specific to the lobby page -->
+    <!-- ... (styles remain the same) ... -->
     <style>
         /* Lobby specific styles */
         #main-layout { max-width: 1200px; }
@@ -45,7 +47,9 @@
     </div>
 
     <!-- Adjust paths for JS -->
-    <script src="/game/socket.io/socket.io.js"></script>
-    <script src="/game/js/lobbyClient.js" type="module"></script>
+    <!-- Load Socket.IO client from the correct path (assuming Nginx removes /game prefix) -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Load lobby JS (Assuming Nginx maps /game/js/lobbyClient.js -> /js/lobbyClient.js) -->
+    <script src="/js/lobbyClient.js" type="module"></script>
 </body>
 </html>
