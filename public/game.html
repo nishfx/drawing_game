@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawing Game MVP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Drawing Game MVP</h1>
+    <p>Status: <span id="status">Connecting...</span></p>
+    <p id="game-status">Waiting for game to start...</p>
+
+    <!-- Timer Progress Bar -->
+    <div id="timer-container" style="display: none;">
+        <div id="timer-bar"></div>
+        <span id="timer-text"></span>
+    </div>
+
+    <div id="main-layout">
+        <div id="player-list-area">
+            <h2>Players</h2>
+            <ul id="player-list"></ul>
+        </div>
+
+        <div id="game-area-wrapper">
+            <div id="word-display-area">
+                <span id="word-hint"></span> <!-- Word shown here -->
+            </div>
+
+             <!-- Phase-Specific Areas -->
+            <div id="voting-area" style="display: none; padding: 15px; border-bottom: 1px solid #ccc; background-color: #f8f8f8;">
+                <!-- Voting options added by uiManager.js -->
+            </div>
+            <div id="results-area" style="display: none; padding: 15px; border-bottom: 1px solid #ccc; background-color: #f8f8f8;">
+                <!-- Results added by uiManager.js -->
+            </div>
+
+
+            <div id="game-area">
+                <!-- Wrap canvas and controls -->
+                <div id="drawing-controls">
+                    <canvas id="drawing-canvas" width="800" height="600"></canvas>
+                    <!-- Add drawing tools (color, size) later if needed -->
+                    <button id="ready-button" style="display: none; margin-top: 10px; padding: 10px 20px; cursor: pointer;">Ready</button>
+                </div>
+
+                <div id="chat-area">
+                    <ul id="messages"></ul>
+                    <form id="chat-form" action="">
+                        <input id="chat-input" autocomplete="off" placeholder="Type message..." /><button type="submit">Send</button>
+                    </form>
+                </div>
+            </div>
+        </div> <!-- End game-area-wrapper -->
+    </div> <!-- End main-layout -->
+
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- IMPORTANT: type="module" is required for import/export -->
+    <script src="/js/client.js" type="module"></script>
+</body>
+</html>

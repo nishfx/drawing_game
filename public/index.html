@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawing Game - Join or Create</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Styles specific to the start page */
+        body { justify-content: center; align-items: center; min-height: 100vh; }
+        .start-container, .lobby-list-container {
+            background-color: #fff; padding: 30px 40px; border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 20px;
+        }
+        .start-container h1, .lobby-list-container h2 { margin-bottom: 25px; color: #333; }
+        .start-container label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        .start-container input[type="text"] {
+            width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ccc;
+            border-radius: 4px; box-sizing: border-box; font-size: 1em;
+        }
+        .button-group { display: flex; gap: 15px; justify-content: center; margin-top: 15px; }
+        .start-container button, .lobby-list-container button {
+            background-color: #007bff; color: white; padding: 12px 20px; border: none;
+            border-radius: 4px; cursor: pointer; font-size: 1.1em; transition: background-color 0.2s ease;
+        }
+        .start-container button:hover, .lobby-list-container button:hover { background-color: #0056b3; }
+        .start-container button.secondary, .lobby-list-container button.secondary { background-color: #6c757d; }
+        .start-container button.secondary:hover, .lobby-list-container button.secondary:hover { background-color: #5a6268; }
+        .error-message { color: red; font-size: 0.9em; margin-top: 10px; min-height: 1.2em; }
+
+        /* Lobby List Styles */
+        #lobby-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; margin-top: 15px; border: 1px solid #eee; }
+        #lobby-list li { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #eee; text-align: left; }
+        #lobby-list li:last-child { border-bottom: none; }
+        #lobby-list span { margin-right: 10px; }
+        #lobby-list .lobby-name { font-weight: bold; }
+        #lobby-list .lobby-players { font-size: 0.9em; color: #555; }
+        #lobby-list button { font-size: 0.9em; padding: 5px 10px; }
+    </style>
+</head>
+<body>
+    <div class="start-container">
+        <h1>Drawing Game</h1>
+        <form id="username-form">
+            <label for="username">Enter your username:</label>
+            <input type="text" id="username" name="username" required maxlength="16" pattern="[A-Za-z0-9_]+" title="Only letters, numbers, and underscores allowed.">
+            <div id="error-message" class="error-message"></div>
+            <div class="button-group">
+                <button type="submit" id="create-lobby-btn">Create Lobby</button>
+                <button type="button" id="show-join-btn" class="secondary">Join Lobby</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="lobby-list-container" id="lobby-list-section" style="display: none;">
+        <h2>Available Lobbies</h2>
+        <ul id="lobby-list">
+            <!-- Lobby list items will be populated here -->
+            <li>No lobbies available.</li>
+        </ul>
+        <button type="button" id="refresh-lobbies-btn" style="margin-top: 15px;">Refresh List</button>
+        <button type="button" id="back-to-username-btn" class="secondary" style="margin-top: 15px;">Back</button>
+    </div>
+
+    <!-- Use type="module" for main.js -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/main.js" type="module"></script>
+</body>
+</html>
