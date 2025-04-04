@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Drawing Game MVP</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Drawing Game</title>
+    <!-- Adjust path for CSS -->
+    <link rel="stylesheet" href="/game/style.css">
 </head>
 <body>
-    <h1>Drawing Game MVP</h1>
+    <h1>Drawing Game</h1>
     <p>Status: <span id="status">Connecting...</span></p>
     <p id="game-status">Waiting for game to start...</p>
 
@@ -41,7 +42,6 @@
                 <!-- Wrap canvas and controls -->
                 <div id="drawing-controls">
                     <canvas id="drawing-canvas" width="800" height="600"></canvas>
-                    <!-- Add drawing tools (color, size) later if needed -->
                     <button id="ready-button" style="display: none; margin-top: 10px; padding: 10px 20px; cursor: pointer;">Ready</button>
                 </div>
 
@@ -55,8 +55,8 @@
         </div> <!-- End game-area-wrapper -->
     </div> <!-- End main-layout -->
 
-    <script src="/socket.io/socket.io.js"></script>
-    <!-- IMPORTANT: type="module" is required for import/export -->
-    <script src="/js/client.js" type="module"></script>
+    <!-- Adjust paths for JS -->
+    <script src="/game/socket.io/socket.io.js"></script>
+    <script src="/game/js/gameClient.js" type="module"></script>
 </body>
 </html>

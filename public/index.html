@@ -4,16 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drawing Game - Join or Create</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- Adjust path for CSS -->
+    <link rel="stylesheet" href="/game/style.css">
     <style>
         /* Styles specific to the start page */
         body { justify-content: center; align-items: center; min-height: 100vh; }
         .start-container, .lobby-list-container {
             background-color: #fff; padding: 30px 40px; border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 20px;
+            width: 90%; max-width: 450px; /* Constrain width */
         }
         .start-container h1, .lobby-list-container h2 { margin-bottom: 25px; color: #333; }
-        .start-container label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        .start-container label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; text-align: left;}
         .start-container input[type="text"] {
             width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ccc;
             border-radius: 4px; box-sizing: border-box; font-size: 1em;
@@ -26,16 +28,21 @@
         .start-container button:hover, .lobby-list-container button:hover { background-color: #0056b3; }
         .start-container button.secondary, .lobby-list-container button.secondary { background-color: #6c757d; }
         .start-container button.secondary:hover, .lobby-list-container button.secondary:hover { background-color: #5a6268; }
-        .error-message { color: red; font-size: 0.9em; margin-top: 10px; min-height: 1.2em; }
+        .error-message { color: red; font-size: 0.9em; margin-top: -10px; margin-bottom: 15px; min-height: 1.2em; text-align: left;}
 
         /* Lobby List Styles */
-        #lobby-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; margin-top: 15px; border: 1px solid #eee; }
-        #lobby-list li { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #eee; text-align: left; }
+        .lobby-list-container { max-width: 600px; }
+        #lobby-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; margin-top: 15px; border: 1px solid #eee; text-align: left; border-radius: 4px; }
+        #lobby-list li { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #eee; flex-wrap: wrap; gap: 5px;}
         #lobby-list li:last-child { border-bottom: none; }
         #lobby-list span { margin-right: 10px; }
-        #lobby-list .lobby-name { font-weight: bold; }
+        #lobby-list .lobby-name { font-weight: bold; color: #0056b3; }
+        #lobby-list .lobby-host { font-size: 0.9em; color: #555; }
         #lobby-list .lobby-players { font-size: 0.9em; color: #555; }
-        #lobby-list button { font-size: 0.9em; padding: 5px 10px; }
+        #lobby-list .lobby-phase { font-size: 0.8em; color: #888; font-style: italic; background-color: #eee; padding: 1px 4px; border-radius: 3px;}
+        #lobby-list button.join-lobby-btn { font-size: 0.9em; padding: 5px 10px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 3px; margin-left: auto; }
+        #lobby-list button.join-lobby-btn:hover { background-color: #218838; }
+        #lobby-list button.join-lobby-btn:disabled { background-color: #6c757d; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -55,15 +62,14 @@
     <div class="lobby-list-container" id="lobby-list-section" style="display: none;">
         <h2>Available Lobbies</h2>
         <ul id="lobby-list">
-            <!-- Lobby list items will be populated here -->
             <li>No lobbies available.</li>
         </ul>
         <button type="button" id="refresh-lobbies-btn" style="margin-top: 15px;">Refresh List</button>
         <button type="button" id="back-to-username-btn" class="secondary" style="margin-top: 15px;">Back</button>
     </div>
 
-    <!-- Use type="module" for main.js -->
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/main.js" type="module"></script>
+    <!-- Adjust paths for JS -->
+    <script src="/game/socket.io/socket.io.js"></script>
+    <script src="/game/js/main.js" type="module"></script>
 </body>
 </html>

@@ -4,18 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lobby - Drawing Game</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- Adjust path for CSS -->
+    <link rel="stylesheet" href="/game/style.css">
     <style>
         /* Lobby specific styles */
-        #main-layout { max-width: 1200px; } /* Slightly smaller? */
-        #lobby-canvas-area { flex-grow: 1; display: flex; flex-direction: column; align-items: center; }
-        #lobby-canvas { border: 1px solid #ccc; background-color: #fff; margin-bottom: 10px; touch-action: none; }
-        #lobby-controls button { margin-top: 10px; padding: 10px 20px; font-size: 1.1em; }
+        #main-layout { max-width: 1200px; }
+        #lobby-canvas-area { flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 15px; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; margin: 0 15px; }
+        #lobby-canvas { border: 1px solid #ccc; background-color: #fff; margin-bottom: 10px; touch-action: none; max-width: 100%; }
+        #lobby-controls button { margin-top: 10px; padding: 10px 20px; font-size: 1.1em; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 4px; }
+        #lobby-controls button:hover { background-color: #218838; }
         #lobby-controls button:disabled { background-color: #aaa; cursor: not-allowed; }
         #player-list-area h2 { margin-bottom: 15px; }
-        #player-list li { display: flex; align-items: center; gap: 8px; }
-        .player-avatar { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 1px solid #ddd; }
-        .host-indicator { font-weight: bold; color: #e67e22; margin-left: auto; font-size: 0.8em; } /* Style for host */
+        /* Player list li styles moved to main style.css */
     </style>
 </head>
 <body>
@@ -26,30 +26,26 @@
     <div id="main-layout">
         <div id="player-list-area">
             <h2>Players</h2>
-            <ul id="player-list">
-                <!-- Player list populated by JS -->
-            </ul>
+            <ul id="player-list"></ul>
         </div>
 
         <div id="lobby-canvas-area">
             <canvas id="lobby-canvas" width="600" height="450"></canvas>
             <div id="lobby-controls">
-                <!-- Start button shown only to host -->
                 <button id="start-game-btn" style="display: none;">Start Game</button>
             </div>
         </div>
 
         <div id="chat-area">
-            <ul id="messages">
-                <!-- Chat messages populated by JS -->
-            </ul>
+            <ul id="messages"></ul>
             <form id="chat-form" action="">
                 <input id="chat-input" autocomplete="off" placeholder="Lobby chat..." /><button type="submit">Send</button>
             </form>
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/lobbyClient.js" type="module"></script>
+    <!-- Adjust paths for JS -->
+    <script src="/game/socket.io/socket.io.js"></script>
+    <script src="/game/js/lobbyClient.js" type="module"></script>
 </body>
 </html>
