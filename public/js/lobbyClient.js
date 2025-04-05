@@ -259,7 +259,7 @@ function updateLobbyUI(state) {
         } else {
             const host = players.find(p => p.isHost);
             const hostName = host ? host.name : '...';
-            lobbyStatus.textContent = isHost ? `Ready when you are!` : `Waiting for host (${hostName})...`;
+            lobbyStatus.textContent = isHost ? `Waiting for players` : `Waiting for host (${hostName})...`;
         }
     }
 

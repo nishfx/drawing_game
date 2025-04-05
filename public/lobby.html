@@ -9,20 +9,20 @@
 <body>
     <!-- Header Area -->
     <div id="header-area">
-        <!-- Adjusted image size (example: slightly larger 16:9) -->
         <img src="/game/images/header.jpeg" alt="Drawing Game Logo" width="444" height="250" style="display: block; margin: 0 auto 20px auto; max-width: 100%;">
-        <!-- Lobby Title Moved -->
-        <!-- Status Removed -->
         <p id="lobby-status">Waiting for players...</p>
     </div>
 
     <div id="main-layout">
-        <div id="player-list-area">
-            <!-- Lobby Title Moved Here -->
+        <!-- Player List Area Wrapper (Includes Title Now) -->
+        <div id="player-list-wrapper">
+             <!-- Lobby Title Moved Here (Outside the bordered box) -->
             <h2 id="lobby-title-display">Lobby</h2>
-            <!-- Players Header with Count -->
-            <h3>Players <span id="player-count-display">(?/?)</span></h3>
-            <ul id="player-list"></ul>
+            <div id="player-list-area">
+                <!-- Players Header with Count -->
+                <h3>Players <span id="player-count-display">(?/?)</span></h3>
+                <ul id="player-list"></ul>
+            </div>
         </div>
 
         <!-- Canvas Area and Tools -->

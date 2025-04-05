@@ -7,7 +7,7 @@ body {
     flex-direction: column;
     align-items: center;
     margin: 0;
-    padding: 15px 10px 10px 10px; /* Reduced top padding */
+    padding: 15px 10px 10px 10px;
     box-sizing: border-box;
     background-color: #f4f4f4;
     color: #333;
@@ -18,17 +18,15 @@ body {
     width: 100%;
     max-width: 1300px;
     text-align: center;
-    margin-bottom: 15px; /* Reduced margin below header */
+    margin-bottom: 15px;
 }
-
-/* Status element removed */
 
 #lobby-status {
     font-weight: bold;
     min-height: 1.2em;
     color: navy;
-    margin-top: 0; /* Removed top margin */
-    margin-bottom: 0; /* Removed bottom margin, handled by header-area margin */
+    margin-top: 0;
+    margin-bottom: 0;
     font-size: 1.3em;
 }
 /* --- End Header Area --- */
@@ -47,13 +45,33 @@ body {
     width: 100%;
     max-width: 1300px;
     gap: 20px; /* Consistent gap */
-    align-items: stretch;
+    align-items: stretch; /* Make columns equal height */
     margin-bottom: 20px;
 }
 
-/* Player list area */
+/* Wrapper for Player List and its Title */
+#player-list-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 260px; /* Match player list area width */
+    flex-shrink: 0;
+}
+
+/* Style for moved Lobby Title */
+#lobby-title-display {
+    margin-top: 0;
+    margin-bottom: 5px; /* Small margin above player list box */
+    text-align: left; /* Align to the left */
+    font-size: 1.1em; /* Smaller font */
+    color: #000; /* Black font */
+    font-weight: normal; /* Normal weight */
+    padding-left: 5px; /* Slight indent */
+}
+
+
+/* Player list area (bordered box) */
 #player-list-area {
-    width: 260px;
+    width: 100%; /* Take full width of wrapper */
     border: 1px solid #ccc;
     padding: 10px;
     background-color: #fff;
@@ -63,20 +81,10 @@ body {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    flex-shrink: 0;
+    flex-grow: 1; /* Allow box to grow */
+    min-height: 0; /* Important for flex grow */
 }
 
-/* Style for moved Lobby Title */
-#lobby-title-display {
-    margin-top: 0;
-    margin-bottom: 15px; /* Space below lobby title */
-    text-align: center;
-    font-size: 1.5em; /* Adjust size as needed */
-    color: #333;
-    font-weight: 500;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 8px;
-}
 
 /* Style for Players heading and count */
 #player-list-area h3 {
@@ -177,35 +185,61 @@ body {
 #lobby-drawing-tools {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    padding: 12px;
+    gap: 8px; /* Slightly reduced gap for tighter packing */
+    padding: 10px; /* Reduced padding */
     background-color: #e9ecef;
     border: 1px solid #ccc;
     border-radius: 4px;
-    margin-top: auto; /* Push tools to bottom of canvas area */
+    margin-top: auto;
     flex-shrink: 0;
     align-items: center;
 }
-.tool-button { padding: 8px 12px; font-size: 1.1em; border: 1px solid #adb5bd; background-color: #fff; border-radius: 4px; cursor: pointer; transition: background-color 0.2s ease; line-height: 1; }
+.tool-button {
+    padding: 0; /* Remove padding */
+    width: 40px; /* Set fixed width */
+    height: 40px; /* Set fixed height */
+    font-size: 1.5em; /* Increase icon size */
+    border: 1px solid #adb5bd;
+    background-color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    line-height: 40px; /* Center icon vertically */
+    text-align: center; /* Center icon horizontally */
+    display: inline-flex; /* Align items nicely */
+    align-items: center;
+    justify-content: center;
+}
 .tool-button:hover { background-color: #f1f3f5; }
 .tool-button.active { background-color: #007bff; color: white; border-color: #0056b3; }
-#lobby-drawing-tools input[type="color"] { height: 36px; width: 40px; padding: 2px; border: 1px solid #adb5bd; border-radius: 4px; cursor: pointer; vertical-align: middle; }
-#lobby-drawing-tools select { padding: 7px 10px; font-size: 0.9em; border: 1px solid #adb5bd; border-radius: 4px; height: 36px; vertical-align: middle; }
 
-
-/* Start Game Button Container (Moved below main layout) */
-#lobby-controls {
-    width: 100%; /* Take full width */
-    max-width: 1300px; /* Match main layout width */
-    text-align: center; /* Center button */
-    padding: 10px 0; /* Add some padding */
-}
-#lobby-controls button#start-game-btn {
-    padding: 12px 25px; /* Slightly larger button */
-    font-size: 1.2em;
+#lobby-drawing-tools input[type="color"] {
+    height: 40px; /* Match button height */
+    width: 45px; /* Slightly wider */
+    padding: 2px;
+    border: 1px solid #adb5bd;
+    border-radius: 4px;
     cursor: pointer;
-    background-color: #28a745; color: white; border: none; border-radius: 4px;
+    vertical-align: middle;
 }
+#lobby-drawing-tools select {
+    padding: 7px 10px;
+    font-size: 0.9em;
+    border: 1px solid #adb5bd;
+    border-radius: 4px;
+    height: 40px; /* Match button height */
+    vertical-align: middle;
+}
+
+
+/* Start Game Button Container */
+#lobby-controls {
+    width: 100%;
+    max-width: 1300px;
+    text-align: center;
+    padding: 10px 0;
+}
+#lobby-controls button#start-game-btn { padding: 12px 25px; font-size: 1.2em; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 4px; }
 #lobby-controls button#start-game-btn:hover { background-color: #218838; }
 #lobby-controls button#start-game-btn:disabled { background-color: #aaa; cursor: not-allowed; }
 
