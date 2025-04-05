@@ -25,30 +25,29 @@ const PORT = process.env.PORT || 3000; // Node listens on 3000
 const publicDirectoryPath = path.join(__dirname, '../public');
 
 // --- Serve Static Files (CSS, JS, Images etc.) ---
-// Serve static files under the /game path prefix.
-app.use('/game', express.static(publicDirectoryPath));
+// Serve static files directly from public. Nginx requests for /game/style.css
+// will likely be proxied to Node as /style.css (if Nginx strips prefix for static too)
+// or Nginx might serve static files directly itself. This covers the proxy case.
+app.use(express.static(publicDirectoryPath));
 
 // --- Specific HTML Routes ---
+// Node handles routes WITHOUT the /game/ prefix, as Nginx strips it.
 
-// ** ADDED: Redirect root path / to /game/ for easier local testing **
-// This handles direct access to http://localhost:3000/
+// Root path '/' (coming from Nginx proxying /game/) serves the start page index.html
 app.get('/', (req, res) => {
-    console.log('Redirecting from / to /game/ (for local access)');
-    res.redirect('/game/');
-});
-
-// Root path '/game/' serves the start page index.html
-app.get('/game/', (req, res) => {
+    console.log(`Serving index.html for request path: ${req.path}`);
     res.sendFile(path.join(publicDirectoryPath, 'index.html'));
 });
 
-// Serve lobby.html for /game/lobby path
-app.get('/game/lobby', (req, res) => {
+// Serve lobby.html for /lobby path (coming from Nginx proxying /game/lobby)
+app.get('/lobby', (req, res) => {
+     console.log(`Serving lobby.html for request path: ${req.path}`);
     res.sendFile(path.join(publicDirectoryPath, 'lobby.html'));
 });
 
-// Serve game.html for /game/game path
-app.get('/game/game', (req, res) => {
+// Serve game.html for /game path (coming from Nginx proxying /game/game)
+app.get('/game', (req, res) => {
+     console.log(`Serving game.html for request path: ${req.path}`);
     res.sendFile(path.join(publicDirectoryPath, 'game.html'));
 });
 
@@ -122,7 +121,6 @@ io.on('connection', (socket) => {
 // --- Start the Server ---
 server.listen(PORT, () => {
     console.log(`Node App Server running on http://localhost:${PORT}`); // Log internal port
-    console.log(`Access the game locally via http://localhost:${PORT}/game/ (or http://localhost:${PORT}/ which redirects)`);
 })
 .on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
