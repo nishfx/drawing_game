@@ -111,7 +111,7 @@ export function initCanvas(canvasId, drawEventEmitter) {
     // --- Event Listeners ---
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove); // resync is called inside here
-    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseup', handleMouseUp); // Listener on canvas itself
     canvas.addEventListener('mouseleave', handleMouseLeave);
     canvas.addEventListener('mouseenter', handleMouseEnter);
 
@@ -125,6 +125,9 @@ export function initCanvas(canvasId, drawEventEmitter) {
     window.addEventListener('resize', () => {
         requestAnimationFrame(resyncOverlayPosition);
     });
+
+    // *** NEW: Global mouseup listener to catch mouse release outside canvas ***
+    window.addEventListener('mouseup', handleGlobalMouseUp, { capture: true }); // Use capture to catch early
 
     // Optional: Listen for scroll events if the canvas position might change on scroll
     // This requires careful consideration of the scrolling container.
@@ -450,13 +453,17 @@ function executeCommand(cmd, ctx) {
     ctx.save();
 
     // Set composite operation based on tool (eraser uses destination-out)
-    ctx.globalCompositeOperation = (cmd.tool === 'eraser') ? 'destination-out' : 'source-over';
+    // *** Correction: Eraser should use background color with source-over for simplicity ***
+    // ctx.globalCompositeOperation = (cmd.tool === 'eraser') ? 'destination-out' : 'source-over';
+    ctx.globalCompositeOperation = 'source-over';
+
 
     // Set styles and line width
     // For eraser, strokeStyle/fillStyle aren't directly used by destination-out,
     // but we set them anyway for consistency. The *shape* drawn matters.
-    ctx.strokeStyle = (cmd.color && cmd.tool !== 'eraser') ? cmd.color : '#000000'; // Default black if color missing/eraser
-    ctx.fillStyle = (cmd.color && cmd.tool !== 'eraser') ? cmd.color : '#000000';
+    // *** Correction: Eraser uses background color ***
+    ctx.strokeStyle = (cmd.tool === 'eraser') ? CANVAS_BACKGROUND_COLOR : (cmd.color || '#000000');
+    ctx.fillStyle = (cmd.tool === 'eraser') ? CANVAS_BACKGROUND_COLOR : (cmd.color || '#000000');
     ctx.lineWidth = (cmd.size != null) ? cmd.size : 5; // Default 5 if size missing
 
     // Execute command based on type
@@ -766,24 +773,35 @@ function updateCursorPreview(x, y) {
 // -------------------------------------------------------------------
 function handleMouseEnter(e) {
     isMouseOverCanvas = true;
-    // Get initial coordinates on enter
     const { x, y } = getEventCoords(e);
-    currentMouseX = x;
+    currentMouseX = x; // Update current position
     currentMouseY = y;
-    // Update cursor style and potentially show preview
-    setCursorStyle();
-    updateCursorPreview(x, y);
+
+    // *** MODIFIED: Check if button is still pressed and resume drawing path ***
+    // e.buttons === 1 checks if the primary button (left) is down
+    if (e.buttons === 1 && isDrawing) {
+        console.log("Mouse re-entered canvas while drawing.");
+        // Resume the drawing path from the entry point
+        lastX = x;
+        lastY = y;
+        context.beginPath(); // Start a new path segment visually connected
+        context.moveTo(x, y);
+        clearOverlay(); // Ensure preview is hidden as drawing resumes
+        setCursorStyle(); // Ensure cursor is 'none'
+    } else {
+        // If not drawing or button not pressed, just update the preview
+        updateCursorPreview(x, y);
+    }
 }
 
 function handleMouseLeave(e) {
-    // If drawing was in progress when mouse left, finish the stroke
-    if (isDrawing) {
-        // Use the last known coordinates before leaving
-        finishStroke(currentMouseX, currentMouseY);
-    }
+    // *** MODIFIED: Do NOT stop drawing if button is held ***
     isMouseOverCanvas = false;
-    clearOverlay(); // Remove preview
-    setCursorStyle(); // Restore default cursor outside canvas
+    clearOverlay(); // Hide preview when mouse leaves
+    setCursorStyle(); // Set cursor to default (since it's outside)
+
+    // Note: currentMouseX, currentMouseY retain the last position *inside* the canvas
+    // Note: isDrawing remains true if the mouse button is still down
 }
 
 function handleMouseDown(e) {
@@ -796,7 +814,7 @@ function handleMouseDown(e) {
     const { x, y } = getEventCoords(e);
 
     isMouseOverCanvas = true; // Ensure flag is set
-    isDrawing = true;
+    isDrawing = true; // *** Set drawing flag ***
     startX = x; // Record start position for shapes/lines
     startY = y;
     lastX = x; // Initialize last position for line segments
@@ -812,8 +830,8 @@ function handleMouseDown(e) {
         currentStrokeId = generateStrokeId(); // Start a new stroke sequence
         // Set context properties for drawing
         context.lineWidth = currentLineWidth;
-        context.strokeStyle = (currentTool === 'eraser') ? CANVAS_BACKGROUND_COLOR : currentStrokeStyle; // Eraser uses background color with source-over
-        context.fillStyle = currentStrokeStyle; // For potential future use (e.g., filled shapes)
+        context.strokeStyle = (currentTool === 'eraser') ? CANVAS_BACKGROUND_COLOR : currentStrokeStyle; // Eraser uses background color
+        context.fillStyle = currentStrokeStyle;
         context.globalCompositeOperation = 'source-over'; // Use source-over for eraser with background color
         // Start the path
         context.beginPath();
@@ -825,7 +843,7 @@ function handleMouseDown(e) {
 
     } else if (currentTool === 'text') {
         // Text is placed on mouse down, not dragged
-        isDrawing = false; // Text placement is instantaneous
+        isDrawing = false; // Text placement is instantaneous, reset drawing flag
         const userText = prompt("Enter text:");
         if (userText && userText.trim()) {
             const strokeId = generateStrokeId(); // Text is a single "stroke"
@@ -846,7 +864,7 @@ function handleMouseDown(e) {
 
     } else if (currentTool === 'fill') {
         // Fill happens on mouse down (like paint bucket tool)
-        isDrawing = false; // Fill is instantaneous
+        isDrawing = false; // Fill is instantaneous, reset drawing flag
         const strokeId = generateStrokeId(); // Fill is a single "stroke"
         const cmdId = generateCommandId();
         const command = {
@@ -873,12 +891,17 @@ function handleMouseMove(e) {
     // Sync overlay position *first* in case layout changed since last move
     resyncOverlayPosition();
 
-    if (!drawingEnabled || !myPlayerId) return;
-
     // Get current coordinates *after* potential resync
     const { x, y } = getEventCoords(e);
+
+    // Update current mouse position regardless of drawing state
+    // This is important for the global mouseup handler
     currentMouseX = x;
     currentMouseY = y;
+
+    // Only process move if drawing is enabled and allowed
+    if (!drawingEnabled || !myPlayerId) return;
+
 
     // If not actively drawing, just update the cursor preview
     if (!isDrawing) {
@@ -886,7 +909,7 @@ function handleMouseMove(e) {
         return;
     }
 
-    // --- Tool-Specific Actions on Mouse Move ---
+    // --- Tool-Specific Actions on Mouse Move (if isDrawing is true) ---
     if (currentTool === 'pencil' || currentTool === 'eraser') {
         // Draw line segment on main canvas
         context.lineTo(x, y);
@@ -927,43 +950,67 @@ function handleMouseMove(e) {
     }
 }
 
-function handleMouseUp(e) {
-    if (!drawingEnabled || !myPlayerId) {
-        isDrawing = false; // Ensure drawing stops if disabled during drag
-        return;
+// *** NEW: Global handler for mouseup anywhere on the page ***
+function handleGlobalMouseUp(e) {
+    if (isDrawing) {
+        console.log("Global mouse up detected, finishing stroke.");
+        // isDrawing flag indicates that a drawing operation was in progress.
+
+        // Use the last known coordinates *on the canvas* (currentMouseX/Y)
+        // These were updated by the last mousemove event over the canvas.
+        const finalX = currentMouseX;
+        const finalY = currentMouseY;
+
+        isDrawing = false; // Set flag FIRST to prevent race conditions
+
+        // Finish the stroke operation (draws final shape, emits command)
+        finishStroke(finalX, finalY);
+
+        // Reset overlay and cursor style AFTER finishing stroke
+        clearOverlay();
+        setCursorStyle(); // Update cursor based on current state (likely default now)
     }
-    if (!isDrawing) return; // Only process if drawing was active
+}
 
-    // Sync overlay position before getting final coordinates
-    resyncOverlayPosition();
-    const { x, y } = getEventCoords(e);
-    currentMouseX = x; // Update final position
-    currentMouseY = y;
 
-    // Finish the current drawing operation
-    finishStroke(x, y);
+// Mouse up *specifically over the canvas*
+// This might fire before or after the global listener depending on propagation.
+// The global listener is now the primary mechanism for setting isDrawing = false.
+function handleMouseUp(e) {
+    // We let the handleGlobalMouseUp function handle the core logic
+    // of setting isDrawing = false and calling finishStroke.
+    // This canvas-specific listener might become redundant, but we keep it
+    // in case we need canvas-specific logic on mouseup later.
+    // It's important it doesn't interfere with the global handler.
+
+    // Example: If we needed to know the *exact* coordinates of mouseup on canvas
+    // const { x, y } = getEventCoords(e);
+    // console.log(`Mouse up on canvas at ${x}, ${y}`);
+    // The global handler will use currentMouseX/Y which should be close enough.
 }
 
 /**
  * Finalizes the current drawing operation (stroke, shape) based on the tool.
  * Draws the final shape, emits the command, and resets drawing state.
- * @param {number} finalX - The final X coordinate.
- * @param {number} finalY - The final Y coordinate.
+ * Called by the global mouseup handler.
+ * @param {number} finalX - The final X coordinate (last known on canvas).
+ * @param {number} finalY - The final Y coordinate (last known on canvas).
  */
 function finishStroke(finalX, finalY) {
-    if (!isDrawing) return; // Should only be called if drawing was active
+    // This function now assumes isDrawing has just been set to false externally
 
     if (currentTool === 'pencil' || currentTool === 'eraser') {
         // If the mouse didn't move (it was a click/dot), ensure the segment was emitted
         if (finalX === startX && finalY === startY) {
             // The dot was already drawn and emitted on mousedown
         }
-        // Close the path for the stroke (though visually may not change much for lines)
-        // context.closePath(); // Not strictly necessary for line strokes
+        // Make sure the path is committed visually (though stroke() in move does most work)
+        context.beginPath(); // Start new path to prevent connecting future strokes
     }
-    // Fill and Text tools complete on mouse down, no action needed on mouse up.
+    // Fill and Text tools complete on mouse down, no action needed here.
 
     else if (currentTool === 'rectangle' || currentTool === 'ellipse') {
+        // This part only executes if mouseup happens *after* mousedown for shapes
         clearOverlay(); // Clear the shape preview from the overlay
         const cmdId = generateCommandId();
         const command = {
@@ -989,16 +1036,20 @@ function finishStroke(finalX, finalY) {
         }
     }
 
-    // Reset drawing state variables
-    isDrawing = false;
+    // Reset drawing state variables *except* isDrawing (already false)
     currentStrokeId = null;
     shapeStartX = null;
     shapeStartY = null;
     startX = 0; // Reset start coords
     startY = 0;
 
-    // Update cursor preview for the current position
-    updateCursorPreview(finalX, finalY);
+    // Update cursor preview for the current position (will likely clear it)
+    // Need to know if mouse is still over canvas for this. Check isMouseOverCanvas.
+    if (isMouseOverCanvas) {
+         updateCursorPreview(finalX, finalY);
+    } else {
+         clearOverlay(); // Ensure overlay is clear if mouse ended up outside
+    }
 }
 
 // -------------------------------------------------------------------
@@ -1028,6 +1079,10 @@ function addCommandToLocalHistory(command) {
 // -------------------------------------------------------------------
 // Touch Event Handlers (Map to Mouse Handlers)
 // -------------------------------------------------------------------
+// Touch handlers generally map well, but global 'touchend' might need similar consideration
+// For simplicity, we assume the current touch handlers + global mouseup cover most cases.
+// A dedicated global touchend listener could be added for more robustness on touch devices.
+
 function handleTouchStart(e) {
     // Only handle touch events directly on the canvas
     if (e.target !== canvas) return;
@@ -1064,19 +1119,25 @@ function handleTouchEnd(e) {
         currentMouseY = y;
         // Finish stroke only if drawing was active
         if (isDrawing) {
-            finishStroke(x, y);
+            // *** Let global mouseup handle finishing ***
+            // finishStroke(x, y);
+            // Set isDrawing false via global handler simulation if needed,
+            // but touchend should trigger the global mouseup listener anyway? Test this.
+            // For safety, explicitly call the global handler logic here for touch.
+             handleGlobalMouseUp(e); // Simulate global mouse up
         }
     } else {
         // If no changedTouches, might be a cancel event, just stop drawing
         if (isDrawing) {
-             finishStroke(currentMouseX, currentMouseY); // Finish with last known coords
+             // finishStroke(currentMouseX, currentMouseY); // Finish with last known coords
+             handleGlobalMouseUp(e); // Simulate global mouse up
         }
     }
 
-    // Reset flags after touch ends
-    isDrawing = false; // Ensure drawing stops
-    isMouseOverCanvas = false; // Treat touch end like mouse leave for cursor state
-    setCursorStyle(); // Update cursor style
+    // Reset flags after touch ends - Global handler should do this
+    // isDrawing = false; // Ensure drawing stops
+    // isMouseOverCanvas = false; // Treat touch end like mouse leave for cursor state
+    // setCursorStyle(); // Update cursor style
 }
 
 
@@ -1104,7 +1165,8 @@ function emitDrawSegment(x0, y0, x1, y1) {
         x0, y0, x1, y1,
         tool: currentTool, // 'pencil' or 'eraser'
         // Color is null for eraser (handled by composite op), otherwise use current color
-        color: (currentTool === 'eraser') ? null : currentStrokeStyle,
+        // *** Correction: Eraser uses background color ***
+        color: (currentTool === 'eraser') ? CANVAS_BACKGROUND_COLOR : currentStrokeStyle,
         size: currentLineWidth
     };
 
@@ -1118,3 +1180,6 @@ function emitDrawSegment(x0, y0, x1, y1) {
     // Emit the command to the server
     emitDrawCallback(command);
 }
+
+// TODO: Add cleanup for the global mouseup listener if the canvas/component is ever destroyed.
+// e.g., in a cleanup function: window.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
