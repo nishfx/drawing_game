@@ -1,5 +1,4 @@
 // server/server.js
-// (Restored to original path handling, assuming Nginx removes /game for socket.io but not static/HTML routes)
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -26,11 +25,17 @@ const PORT = process.env.PORT || 3000; // Node listens on 3000
 const publicDirectoryPath = path.join(__dirname, '../public');
 
 // --- Serve Static Files (CSS, JS, Images etc.) ---
-// Serve static files under the /game path prefix. Nginx might rewrite, but Express needs this base.
+// Serve static files under the /game path prefix.
 app.use('/game', express.static(publicDirectoryPath));
 
 // --- Specific HTML Routes ---
-// These routes handle the base paths for the different pages, prefixed with /game.
+
+// ** ADDED: Redirect root path / to /game/ for easier local testing **
+// This handles direct access to http://localhost:3000/
+app.get('/', (req, res) => {
+    console.log('Redirecting from / to /game/ (for local access)');
+    res.redirect('/game/');
+});
 
 // Root path '/game/' serves the start page index.html
 app.get('/game/', (req, res) => {
@@ -117,7 +122,7 @@ io.on('connection', (socket) => {
 // --- Start the Server ---
 server.listen(PORT, () => {
     console.log(`Node App Server running on http://localhost:${PORT}`); // Log internal port
-    // Access instructions remain the same, assuming Nginx handles the external access correctly
+    console.log(`Access the game locally via http://localhost:${PORT}/game/ (or http://localhost:${PORT}/ which redirects)`);
 })
 .on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
