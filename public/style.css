@@ -119,7 +119,15 @@ body {
 /* Container for canvas and chat */
 #game-area { display: flex; gap: 0; padding: 15px; box-sizing: border-box; flex-grow: 1; min-height: 0; }
 #drawing-controls { display: flex; flex-direction: column; align-items: center; flex-grow: 1; min-width: 0; }
-#drawing-canvas, #lobby-canvas { border: 1px solid #dee2e6; cursor: crosshair; display: block; background-color: #fff; touch-action: none; max-width: 100%; }
+#drawing-canvas, #lobby-canvas {
+    border: 1px solid #dee2e6;
+    /* cursor: crosshair; Let JS handle cursor */
+    display: block;
+    background-color: #fff;
+    touch-action: none; /* Prevent default touch actions like scroll/zoom */
+    max-width: 100%;
+    box-sizing: border-box; /* Ensure padding/border are included in width/height */
+}
 #ready-button { background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1em; margin-top: 10px; transition: background-color 0.2s ease; flex-shrink: 0; }
 #ready-button:hover { background-color: #218838; }
 #ready-button:disabled { background-color: #6c757d; cursor: not-allowed; }
@@ -250,27 +258,29 @@ body {
 @media (max-width: 900px) {
     #main-layout {
         flex-direction: column;
-        align-items: center; /* Center items when stacked */
+        align-items: center;
     }
     #player-list-area {
-        width: 90%; /* Take more width */
-        max-width: 400px; /* Limit max width */
-        order: 1; /* Show players first */
-        padding-top: 10px; /* Reduce top padding */
-        max-height: 200px; /* Limit height */
+        width: 90%;
+        max-width: 400px;
+        order: 1;
+        padding-top: 10px;
+        max-height: 200px;
     }
-    #lobby-title-display { /* Hide lobby title on small screens */
+    #lobby-title-display {
         display: none;
     }
     #lobby-canvas-area {
-        width: 90%; /* Take more width */
-        order: 2; /* Canvas second */
+        width: 90%;
+        order: 2;
+        /* Ensure relative positioning for overlay */
+        position: relative;
     }
     #chat-area {
-        width: 90%; /* Take more width */
-        max-width: 400px; /* Limit max width */
-        order: 3; /* Chat last */
-        height: 250px; /* Fixed height for chat */
+        width: 90%;
+        max-width: 400px;
+        order: 3;
+        height: 250px;
     }
     #game-area {
         flex-direction: column;
@@ -278,11 +288,13 @@ body {
     }
     #drawing-controls {
         width: 100%;
+         /* Ensure relative positioning for overlay */
+        position: relative;
     }
     #drawing-canvas {
         width: 100%;
         height: auto;
-        max-height: 400px; /* Adjust max height */
+        max-height: 400px;
     }
     #chat-area { /* Adjust game chat area too */
          width: 100%;

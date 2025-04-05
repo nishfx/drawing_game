@@ -11,7 +11,7 @@ let startX = 0;
 let startY = 0;
 let lastX = 0;
 let lastY = 0;
-let currentMouseX = 0;
+let currentMouseX = 0; // Still track for potential future use, but not for preview offset
 let currentMouseY = 0;
 let isMouseOverCanvas = false;
 let drawingEnabled = false;
@@ -39,16 +39,13 @@ export function initCanvas(canvasId, drawEventEmitter) {
     if (!context) { console.error("Failed to get 2D context"); return false; }
 
     overlayCanvas = document.createElement('canvas');
-    // ** Match internal resolution initially **
     overlayCanvas.width = canvas.width;
     overlayCanvas.height = canvas.height;
-    // Style overlay for exact positioning
     overlayCanvas.style.position = 'absolute';
-    overlayCanvas.style.top = '0';
-    overlayCanvas.style.left = '0';
-    overlayCanvas.style.width = canvas.clientWidth + 'px'; // Match visual size
-    overlayCanvas.style.height = canvas.clientHeight + 'px';
+    overlayCanvas.style.top = canvas.offsetTop + 'px'; // Use offsetTop/Left for initial position
+    overlayCanvas.style.left = canvas.offsetLeft + 'px';
     overlayCanvas.style.pointerEvents = 'none';
+    // Ensure parent has relative positioning if needed (can also be done via CSS)
     if (getComputedStyle(canvas.parentNode).position === 'static') {
         canvas.parentNode.style.position = 'relative';
     }
@@ -72,41 +69,17 @@ export function initCanvas(canvasId, drawEventEmitter) {
     // Add event listeners
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mouseup', handleMouseUp); // Keep global mouseup
     canvas.addEventListener('mouseenter', handleMouseEnter);
     canvas.addEventListener('mouseleave', handleMouseLeave);
 
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchend', handleTouchEnd); // Keep global touchend
     window.addEventListener('touchcancel', handleTouchEnd);
 
-    // Resize Observer to keep overlay aligned and scaled
-    const resizeObserver = new ResizeObserver(entries => {
-        for (let entry of entries) {
-            if (entry.target === canvas && overlayCanvas) {
-                const { width, height } = entry.contentRect;
-                // Update CSS size
-                overlayCanvas.style.width = width + 'px';
-                overlayCanvas.style.height = height + 'px';
-                // ** Update internal resolution to match main canvas **
-                // This assumes main canvas internal resolution might change if its
-                // attributes are updated elsewhere. If not, this might be redundant.
-                if (overlayCanvas.width !== canvas.width || overlayCanvas.height !== canvas.height) {
-                    overlayCanvas.width = canvas.width;
-                    overlayCanvas.height = canvas.height;
-                    console.log("Overlay resolution updated to:", canvas.width, canvas.height);
-                    // Re-apply overlay context settings if needed after resize
-                    overlayCtx.strokeStyle = currentStrokeStyle;
-                    overlayCtx.lineWidth = currentLineWidth;
-                    overlayCtx.lineCap = 'round';
-                    overlayCtx.lineJoin = 'round';
-                }
-            }
-        }
-    });
-    resizeObserver.observe(canvas);
-
+    // ** Removed ResizeObserver for simplicity, assuming fixed canvas size for now **
+    // If canvas resizes dynamically, this needs to be added back carefully
 
     console.log(`Canvas "${canvasId}" initialized`);
     clearHistory();
@@ -123,11 +96,11 @@ export function enableDrawing() {
     if (!canvas) return;
     drawingEnabled = true;
     console.log("Drawing enabled");
-    // Set initial cursor style based on current state (tool, mouse position)
-    setCursorStyle();
-    // Trigger a preview update in case mouse is already over canvas
+    // Set cursor based on the currently selected tool
+    setCursorForTool(currentTool);
+    // Update preview if mouse is already over
     if (isMouseOverCanvas) {
-        updateCursorPreview();
+        updateCursorPreview(currentMouseX, currentMouseY); // Pass current coords
     }
 }
 
@@ -137,7 +110,7 @@ export function disableDrawing() {
     isDrawing = false;
     currentStrokeId = null;
     clearOverlay();
-    canvas.style.cursor = 'not-allowed'; // Explicitly set disabled cursor
+    canvas.style.cursor = 'not-allowed';
     console.log("Drawing disabled");
 }
 
@@ -174,14 +147,15 @@ export function getDrawingDataURL() {
 export function setTool(toolName) {
     currentTool = toolName;
     console.log("Tool set to:", currentTool);
+    setCursorForTool(currentTool); // Set the default cursor for the tool
     if (context && currentTool !== 'eraser') {
         context.globalCompositeOperation = 'source-over';
     }
+    // Update preview state based on new tool
     if (isMouseOverCanvas) {
-        updateCursorPreview(); // This will also call setCursorStyle
+        updateCursorPreview(currentMouseX, currentMouseY);
     } else {
-        setCursorStyle(); // Update cursor even if mouse isn't over
-        clearOverlay();
+        clearOverlay(); // Clear overlay if mouse isn't over
     }
 }
 
@@ -191,7 +165,7 @@ export function setColor(color) {
     if (overlayCtx) overlayCtx.strokeStyle = currentStrokeStyle;
     console.log("Color set to:", currentStrokeStyle);
     if (isMouseOverCanvas && (currentTool === 'pencil' || currentTool === 'eraser')) {
-        updateCursorPreview();
+        updateCursorPreview(currentMouseX, currentMouseY); // Update preview color
     }
 }
 
@@ -201,12 +175,12 @@ export function setLineWidth(width) {
     if (overlayCtx) overlayCtx.lineWidth = currentLineWidth;
     console.log("Line width set to:", currentLineWidth);
     if (isMouseOverCanvas && (currentTool === 'pencil' || currentTool === 'eraser')) {
-        updateCursorPreview();
+        updateCursorPreview(currentMouseX, currentMouseY); // Update preview size
     }
 }
 
 // --- History and Redrawing ---
-// ... (generateCommandId, generateStrokeId, addCommandToHistory, clearHistory, loadAndDrawHistory, removeCommands, redrawCanvasFromHistory, executeCommand, drawExternalCommand, undoLastAction remain unchanged from previous correct version) ...
+// ... (generateCommandId, generateStrokeId, addCommandToHistory, clearHistory, loadAndDrawHistory, removeCommands, redrawCanvasFromHistory, executeCommand, drawExternalCommand, undoLastAction remain unchanged) ...
 function generateCommandId() {
     return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 11)}`;
 }
@@ -308,7 +282,7 @@ function redrawCanvasFromHistory() {
     context.lineJoin = originalJoin;
 
     console.log("Canvas redraw complete.");
-    if (isMouseOverCanvas) updateCursorPreview();
+    if (isMouseOverCanvas) updateCursorPreview(currentMouseX, currentMouseY);
 }
 
 function executeCommand(cmd, ctx) {
@@ -441,6 +415,7 @@ export function undoLastAction(socket) {
 
 // --- Internal Drawing Logic ---
 
+// ** Reverted Coordinate Calculation **
 function getEventCoords(e) {
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
@@ -450,41 +425,30 @@ function getEventCoords(e) {
     } else {
         clientX = e.clientX; clientY = e.clientY;
     }
-    const xRelativeToRect = clientX - rect.left;
-    const yRelativeToRect = clientY - rect.top;
+    // Original calculation: relative position first, then scale
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const canvasX = xRelativeToRect * scaleX;
-    const canvasY = yRelativeToRect * scaleY;
-    return { x: canvasX, y: canvasY };
+    return { x: x * scaleX, y: y * scaleY };
 }
 
-// ** Updated Cursor Style Logic **
-function setCursorStyle() {
+// ** Simplified Cursor Style Logic **
+function setCursorForTool(tool) {
     if (!canvas) return;
-    // Determine if the preview should be shown (mouse over, not drawing, correct tool)
-    const showPreview = isMouseOverCanvas && !isDrawing && (currentTool === 'pencil' || currentTool === 'eraser');
-
-    if (showPreview || isDrawing) { // Hide default cursor if preview shown OR if actively drawing
-        canvas.style.cursor = 'none';
-    } else if (!drawingEnabled) { // Explicitly set disabled cursor
-         canvas.style.cursor = 'not-allowed';
-    }
-    else {
-        // Set cursor based on the tool when preview is not shown and not drawing
-        switch (currentTool) {
-            case 'eraser':
-                canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect x="5" y="5" width="10" height="10" fill="white" stroke="black"/></svg>') 10 10, auto`;
-                break;
-            case 'fill':
-                canvas.style.cursor = 'copy'; break;
-            case 'rectangle':
-            case 'ellipse':
-                canvas.style.cursor = 'crosshair'; break;
-            case 'pencil':
-            default:
-                canvas.style.cursor = 'crosshair'; break;
-        }
+    // Set the default cursor style for the tool
+    switch (tool) {
+        case 'eraser':
+            canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect x="5" y="5" width="10" height="10" fill="white" stroke="black"/></svg>') 10 10, auto`;
+            break;
+        case 'fill':
+            canvas.style.cursor = 'copy'; break;
+        case 'rectangle':
+        case 'ellipse':
+            canvas.style.cursor = 'crosshair'; break;
+        case 'pencil':
+        default:
+            canvas.style.cursor = 'crosshair'; break;
     }
 }
 
@@ -496,15 +460,15 @@ function clearOverlay() {
 
 // --- Cursor Preview ---
 function drawCursorPreview(x, y) {
-    if (!overlayCtx || !drawingEnabled || isDrawing) {
+    if (!overlayCtx || !drawingEnabled || isDrawing) { // Don't draw if drawing
         clearOverlay(); return;
     }
     clearOverlay();
 
     const radius = currentLineWidth / 2;
     overlayCtx.beginPath();
-    // ** Use integer coordinates for arc drawing to avoid subpixel issues **
-    overlayCtx.arc(Math.round(x), Math.round(y), Math.max(1, radius), 0, Math.PI * 2);
+    // Use non-rounded coords from getEventCoords for preview drawing
+    overlayCtx.arc(x, y, Math.max(1, radius), 0, Math.PI * 2);
     overlayCtx.strokeStyle = currentTool === 'eraser' ? '#555555' : currentStrokeStyle;
     overlayCtx.lineWidth = 1;
     overlayCtx.stroke();
@@ -512,18 +476,20 @@ function drawCursorPreview(x, y) {
 
     overlayCtx.lineWidth = currentLineWidth; // Restore for shape previews
     overlayCtx.strokeStyle = currentStrokeStyle;
+
+    // Hide default cursor when preview is visible
+    if (canvas) canvas.style.cursor = 'none';
 }
 
-function updateCursorPreview() {
-    if (!isMouseOverCanvas || isDrawing) {
-        clearOverlay();
-    } else if (currentTool === 'pencil' || currentTool === 'eraser') {
-        drawCursorPreview(currentMouseX, currentMouseY);
+function updateCursorPreview(x, y) {
+    // Only show preview if mouse is over, not drawing, and tool is pencil/eraser
+    if (isMouseOverCanvas && !isDrawing && (currentTool === 'pencil' || currentTool === 'eraser')) {
+        drawCursorPreview(x, y);
     } else {
         clearOverlay();
+        // Restore default cursor if preview is hidden
+        setCursorForTool(currentTool);
     }
-    // Always update the cursor style after potentially drawing/clearing the preview
-    setCursorStyle();
 }
 
 // --- Event Handlers ---
@@ -532,13 +498,13 @@ function handleMouseEnter(e) {
     isMouseOverCanvas = true;
     const { x, y } = getEventCoords(e);
     currentMouseX = x; currentMouseY = y;
-    updateCursorPreview(); // Update preview and cursor style
+    updateCursorPreview(x, y); // Update preview and cursor style
 }
 
 function handleMouseLeave(e) {
     isMouseOverCanvas = false;
     clearOverlay();
-    setCursorStyle(); // Restore default cursor
+    setCursorForTool(currentTool); // Restore default cursor
 }
 
 function handleMouseDown(e) {
@@ -546,7 +512,7 @@ function handleMouseDown(e) {
     if (!drawingEnabled || !myPlayerId) return;
 
     isMouseOverCanvas = true;
-    const { x, y } = getEventCoords(e); // Get precise coords on down
+    const { x, y } = getEventCoords(e);
     isDrawing = true;
     startX = x; startY = y;
     lastX = x; lastY = y;
@@ -559,7 +525,7 @@ function handleMouseDown(e) {
     context.lineJoin = 'round';
 
     clearOverlay(); // Clear previews
-    setCursorStyle(); // Hide default cursor
+    if (canvas) canvas.style.cursor = 'none'; // Hide cursor while drawing
 
     if (currentTool === 'pencil' || currentTool === 'eraser') {
         currentStrokeId = generateStrokeId();
@@ -583,10 +549,10 @@ function handleMouseMove(e) {
     if (!drawingEnabled || !myPlayerId) return;
 
     const { x, y } = getEventCoords(e);
-    currentMouseX = x; currentMouseY = y;
+    currentMouseX = x; currentMouseY = y; // Update tracked position
 
     if (!isDrawing) {
-        updateCursorPreview();
+        updateCursorPreview(x, y); // Update preview circle if not drawing
         return;
     }
 
@@ -632,8 +598,11 @@ function handleMouseUp(e) {
         isDrawing = false; currentStrokeId = null; return;
     }
 
-    const { x, y } = getEventCoords(e);
-    currentMouseX = x; currentMouseY = y;
+    // Get coordinates relative to canvas, even if event is on window
+    // Use the *last known good coordinates* if the mouse up happened outside
+    // For simplicity, we'll use the currentMouseX/Y which is updated by mousemove
+    const x = currentMouseX;
+    const y = currentMouseY;
 
     if (toolUsed === 'fill') {
         if (!wasDrawing && startX !== null && startY !== null) {
@@ -672,7 +641,7 @@ function handleMouseUp(e) {
         }
     } else if (toolUsed === 'pencil' || toolUsed === 'eraser') {
         if (!wasDrawing) return;
-        // Ensure the very last segment is drawn and emitted if mouse moved fast
+        // Ensure the very last segment is drawn and emitted
         if (x !== lastX || y !== lastY) {
              drawLocalSegment(lastX, lastY, x, y);
              emitDrawSegment(lastX, lastY, x, y);
@@ -686,9 +655,9 @@ function handleMouseUp(e) {
 
     // Update cursor preview/style
     if (isMouseOverCanvas) {
-        updateCursorPreview();
+        updateCursorPreview(x, y); // Update preview based on final position
     } else {
-        setCursorStyle(); // Ensure cursor resets if mouse is outside
+        setCursorForTool(currentTool); // Restore default cursor if mouse is outside
     }
 }
 
@@ -697,7 +666,7 @@ function handleTouchStart(e) {
     if (e.target !== canvas) return;
     if (!drawingEnabled) return;
     if (e.touches.length > 0) {
-        isMouseOverCanvas = true;
+        isMouseOverCanvas = true; // Treat touch as mouse over
         handleMouseDown(e);
     }
 }
@@ -710,6 +679,7 @@ function handleTouchMove(e) {
         if (isDrawing) {
             handleMouseMove(e);
         }
+        // No cursor preview for touch
     }
 }
 
@@ -722,21 +692,26 @@ function handleTouchEnd(e) {
          isDrawing = false; currentStrokeId = null; return;
     }
 
+    // Use changedTouches for the final position
     if (e.changedTouches.length > 0) {
        const pseudoEvent = {
            clientX: e.changedTouches[0].clientX,
            clientY: e.changedTouches[0].clientY,
            preventDefault: () => {}
        };
+       // Update currentMouseX/Y before calling mouseup logic
+       const { x, y } = getEventCoords(pseudoEvent);
+       currentMouseX = x; currentMouseY = y;
        handleMouseUp.call({ isDrawing: wasDrawing, currentTool: toolUsed }, pseudoEvent);
     } else {
+       // Fallback if changedTouches is empty
        isDrawing = false;
        currentStrokeId = null;
        if (context) context.closePath();
        clearOverlay();
     }
-    isMouseOverCanvas = false;
-    setCursorStyle();
+    isMouseOverCanvas = false; // Reset mouse over state
+    setCursorForTool(currentTool); // Reset cursor
 }
 
 // Emits drawing data for a line segment
