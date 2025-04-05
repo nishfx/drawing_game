@@ -7,7 +7,7 @@ body {
     flex-direction: column;
     align-items: center;
     margin: 0;
-    padding: 20px 10px 10px 10px; /* Increased top padding */
+    padding: 15px 10px 10px 10px; /* Reduced top padding */
     box-sizing: border-box;
     background-color: #f4f4f4;
     color: #333;
@@ -16,75 +16,28 @@ body {
 /* --- Header Area --- */
 #header-area {
     width: 100%;
-    max-width: 1300px; /* Match main layout width */
+    max-width: 1300px;
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 15px; /* Reduced margin below header */
 }
 
-/* Logo placeholder removed, styles applied directly to img tag in HTML */
+/* Status element removed */
 
-#header-area h1 { /* Lobby Title */
-    margin-top: 0;
-    margin-bottom: 5px; /* Reduced margin below title */
-    color: #333;
-    font-weight: 500;
-    font-size: 2.2em; /* Slightly larger title */
-}
-
-#header-area #status { /* Player connection status */
-    font-weight: normal; /* Less prominent */
-    font-size: 0.9em;
-    color: #555;
-    margin-bottom: 10px; /* Space below status */
-}
-
-#lobby-status { /* Game/Lobby status (Waiting...) */
+#lobby-status {
     font-weight: bold;
     min-height: 1.2em;
     color: navy;
-    margin-top: 5px;
-    margin-bottom: 15px; /* Increased margin below */
-    font-size: 1.3em; /* Larger font */
+    margin-top: 0; /* Removed top margin */
+    margin-bottom: 0; /* Removed bottom margin, handled by header-area margin */
+    font-size: 1.3em;
 }
 /* --- End Header Area --- */
 
 
 /* Timer Progress Bar Styles (No changes) */
-#timer-container {
-    width: 80%;
-    max-width: 600px;
-    height: 25px;
-    background-color: #e0e0e0;
-    border-radius: 15px;
-    margin: 10px auto;
-    overflow: hidden;
-    position: relative;
-    border: 1px solid #ccc;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
-}
-#timer-bar {
-    height: 100%;
-    width: 100%;
-    background-color: #4caf50; /* Green */
-    border-radius: 15px; /* Full radius now */
-    transition: width 0.1s linear, background-color 0.3s ease; /* Smooth transitions */
-    text-align: center;
-    line-height: 25px;
-    color: white;
-    font-weight: bold;
-}
-#timer-text {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    text-align: center;
-    line-height: 25px;
-    color: white;
-    font-size: 0.9em;
-    font-weight: bold;
-    text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
-    pointer-events: none;
-}
+#timer-container { width: 80%; max-width: 600px; height: 25px; background-color: #e0e0e0; border-radius: 15px; margin: 10px auto; overflow: hidden; position: relative; border: 1px solid #ccc; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+#timer-bar { height: 100%; width: 100%; background-color: #4caf50; border-radius: 15px; transition: width 0.1s linear, background-color 0.3s ease; text-align: center; line-height: 25px; color: white; font-weight: bold; }
+#timer-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; text-align: center; line-height: 25px; color: white; font-size: 0.9em; font-weight: bold; text-shadow: 1px 1px 1px rgba(0,0,0,0.5); pointer-events: none; }
 
 
 /* Main layout container */
@@ -95,12 +48,12 @@ body {
     max-width: 1300px;
     gap: 20px; /* Consistent gap */
     align-items: stretch;
-    margin-bottom: 20px; /* Add margin below main layout before start button */
+    margin-bottom: 20px;
 }
 
 /* Player list area */
 #player-list-area {
-    width: 260px; /* Increased width */
+    width: 260px;
     border: 1px solid #ccc;
     padding: 10px;
     background-color: #fff;
@@ -108,12 +61,25 @@ body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     overflow-y: auto;
     box-sizing: border-box;
-    display: flex; /* Use flex column for player list */
+    display: flex;
     flex-direction: column;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
 }
 
-#player-list-area h2 {
+/* Style for moved Lobby Title */
+#lobby-title-display {
+    margin-top: 0;
+    margin-bottom: 15px; /* Space below lobby title */
+    text-align: center;
+    font-size: 1.5em; /* Adjust size as needed */
+    color: #333;
+    font-weight: 500;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+}
+
+/* Style for Players heading and count */
+#player-list-area h3 {
     margin-top: 0;
     margin-bottom: 10px;
     text-align: center;
@@ -121,108 +87,34 @@ body {
     color: #333;
     border-bottom: 1px solid #eee;
     padding-bottom: 8px;
-    flex-shrink: 0; /* Prevent header shrinking */
+    flex-shrink: 0;
+}
+#player-count-display {
+    font-weight: normal;
+    font-size: 0.9em;
+    color: #555;
 }
 
-#player-list {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-    flex-grow: 1; /* Allow list to take remaining space */
-    overflow-y: auto; /* Scroll only the list if needed */
-}
-
-#player-list li {
-    padding: 6px 8px;
-    border-bottom: 1px solid #eee;
-    font-size: 0.95em;
-    word-break: break-word;
-    display: flex; /* Use flex for avatar/name/host */
-    align-items: center;
-    gap: 8px;
-}
+#player-list { list-style-type: none; padding: 0; margin: 0; flex-grow: 1; overflow-y: auto; }
+#player-list li { padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 0.95em; word-break: break-word; display: flex; align-items: center; gap: 8px; }
 #player-list li:last-child { border-bottom: none; }
-#player-list li span[style*="bold"] { font-weight: bold; background-color: #f0f8ff; } /* Highlight self slightly */
-
-/* Player list avatars and host indicator */
-.player-avatar {
-    width: 14px; height: 14px; border-radius: 50%; display: inline-block;
-    border: 1px solid rgba(0,0,0,0.2); flex-shrink: 0;
-}
-.host-indicator { /* Ensure this style exists */
-    font-weight: bold;
-    color: #e67e22; /* Orange */
-    margin-left: auto; /* Pushes it to the right */
-    font-size: 0.8em;
-    background-color: #fdf3e1; /* Light orange background */
-    padding: 1px 5px; /* Adjust padding */
-    border-radius: 3px;
-    white-space: nowrap; /* Prevent wrapping */
-}
+#player-list li span[style*="bold"] { font-weight: bold; background-color: #f0f8ff; }
+.player-avatar { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.2); flex-shrink: 0; }
+.host-indicator { font-weight: bold; color: #e67e22; margin-left: auto; font-size: 0.8em; background-color: #fdf3e1; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
 
 
 /* Wrapper for word display + game area */
-#game-area-wrapper {
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-    background-color: #fff;
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    overflow: hidden; /* Important for containing elements */
-    border: 1px solid #ccc;
-}
-
-/* Word display area */
-#word-display-area {
-    text-align: center; padding: 15px; font-size: 2em; font-weight: bold;
-    letter-spacing: 0.2em; min-height: 1.5em; background-color: #e9ecef;
-    border-bottom: 1px solid #ccc; box-sizing: border-box; color: #333;
-    flex-shrink: 0; /* Prevent shrinking */
-}
+#game-area-wrapper { display: flex; flex-direction: column; flex-grow: 1; background-color: #fff; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #ccc; }
+#word-display-area { text-align: center; padding: 15px; font-size: 2em; font-weight: bold; letter-spacing: 0.2em; min-height: 1.5em; background-color: #e9ecef; border-bottom: 1px solid #ccc; box-sizing: border-box; color: #333; flex-shrink: 0; }
 #word-display-area .is-word { color: #00695c; letter-spacing: 0.1em; }
-
-/* Phase specific areas */
-#voting-area, #results-area {
-    background-color: #f8f9fa; border-bottom: 1px solid #ccc; padding: 15px;
-    flex-shrink: 0; /* Prevent shrinking */
-}
+#voting-area, #results-area { background-color: #f8f9fa; border-bottom: 1px solid #ccc; padding: 15px; flex-shrink: 0; }
 #voting-area h3, #results-area h3 { text-align: center; margin-top: 0; margin-bottom: 15px; color: #495057; }
 
 /* Container for canvas and chat */
-#game-area {
-    display: flex;
-    gap: 0; /* No gap */
-    padding: 15px;
-    box-sizing: border-box;
-    flex-grow: 1; /* Allow this area to grow */
-    min-height: 0; /* Needed for flex-grow in column layout */
-}
-
-/* Drawing controls wrapper */
-#drawing-controls {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex-grow: 1; /* Allow drawing area to take space */
-    min-width: 0; /* Needed for flex-grow */
-}
-
-/* Drawing canvas */
-#drawing-canvas {
-    border: 1px solid #dee2e6; cursor: crosshair; display: block;
-    background-color: #fff; touch-action: none;
-    max-width: 100%; /* Ensure canvas doesn't overflow */
-    /* Height might need adjustment based on tools */
-}
-
-/* Ready Button */
-#ready-button {
-    background-color: #28a745; color: white; border: none; padding: 10px 20px;
-    border-radius: 4px; cursor: pointer; font-size: 1em; margin-top: 10px;
-    transition: background-color 0.2s ease;
-    flex-shrink: 0;
-}
+#game-area { display: flex; gap: 0; padding: 15px; box-sizing: border-box; flex-grow: 1; min-height: 0; }
+#drawing-controls { display: flex; flex-direction: column; align-items: center; flex-grow: 1; min-width: 0; }
+#drawing-canvas { border: 1px solid #dee2e6; cursor: crosshair; display: block; background-color: #fff; touch-action: none; max-width: 100%; }
+#ready-button { background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1em; margin-top: 10px; transition: background-color 0.2s ease; flex-shrink: 0; }
 #ready-button:hover { background-color: #218838; }
 #ready-button:disabled { background-color: #6c757d; cursor: not-allowed; }
 
@@ -231,52 +123,22 @@ body {
 #chat-area {
     display: flex; flex-direction: column; width: 300px;
     border: 1px solid #dee2e6; box-sizing: border-box;
-    /* margin-left: 15px; Removed margin, rely on parent gap */
     background-color: #fff; border-radius: 4px;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
 }
 
-/* Message list */
-#messages {
-    list-style-type: none; padding: 0; margin: 0; flex-grow: 1; min-height: 0;
-    overflow-y: auto; padding: 8px 10px; background-color: #f8f9fa;
-    font-size: 0.9em; border-bottom: 1px solid #dee2e6;
-}
+#messages { list-style-type: none; padding: 0; margin: 0; flex-grow: 1; min-height: 0; overflow-y: auto; padding: 8px 10px; background-color: #f8f9fa; font-size: 0.9em; border-bottom: 1px solid #dee2e6; }
 #messages li { padding: 4px 0; word-wrap: break-word; }
 #messages li[style*="italic"] { color: #6c757d; }
-#messages li.correct-guess { /* Style for correct guess messages (if used) */
-    font-weight: bold; color: #155724; background-color: #d4edda;
-    padding: 5px 8px; border-radius: 3px; margin: 2px 0; border-left: 3px solid #28a745;
-}
-
+#messages li.correct-guess { font-weight: bold; color: #155724; background-color: #d4edda; padding: 5px 8px; border-radius: 3px; margin: 2px 0; border-left: 3px solid #28a745; }
 
 /* Chat input form */
-#chat-form {
-    display: flex;
-    flex-shrink: 0;
-    border-top: 1px solid #dee2e6; /* Add separator */
-    position: relative; /* For emoji picker positioning */
-}
-#chat-input {
-    flex-grow: 1; border: none; padding: 10px; font-size: 0.9em;
-    min-width: 0;
-    border-bottom-left-radius: 4px; /* Keep bottom radius */
-}
+#chat-form { display: flex; flex-shrink: 0; border-top: 1px solid #dee2e6; position: relative; }
+#chat-input { flex-grow: 1; border: none; padding: 10px; font-size: 0.9em; min-width: 0; border-bottom-left-radius: 4px; }
 #chat-input:focus { outline: none; box-shadow: inset 0 0 3px rgba(0, 123, 255, 0.5); }
-
-#chat-form button { /* Style both buttons */
-    flex-shrink: 0; background: #007bff; border: none; padding: 10px 15px; color: white;
-    cursor: pointer; font-size: 0.9em; transition: background-color 0.2s ease;
-}
-#chat-form button#send-btn { /* Specific style if needed */
-     border-bottom-right-radius: 4px; /* Keep bottom radius */
-}
-#chat-form button#emoji-btn {
-    background: #6c757d; /* Different color for emoji button */
-    padding: 10px; /* Adjust padding */
-    font-size: 1.1em; /* Make emoji slightly larger */
-    line-height: 1; /* Align emoji better */
-}
+#chat-form button { flex-shrink: 0; background: #007bff; border: none; padding: 10px 15px; color: white; cursor: pointer; font-size: 0.9em; transition: background-color 0.2s ease; }
+#chat-form button#send-btn { border-bottom-right-radius: 4px; }
+#chat-form button#emoji-btn { background: #6c757d; padding: 10px; font-size: 1.1em; line-height: 1; }
 #chat-form button:hover { background: #0056b3; }
 #chat-form button#emoji-btn:hover { background: #5a6268; }
 
@@ -302,15 +164,15 @@ body {
 
 /* --- Styles for Lobby Screen (lobby.html - served at /game/lobby) --- */
 #lobby-canvas-area {
-    flex-grow: 1; display: flex; flex-direction: column; align-items: stretch; /* Stretch children */
+    flex-grow: 1; display: flex; flex-direction: column; align-items: stretch;
     padding: 15px; background-color: #f8f9fa; border-radius: 4px;
-    border: 1px solid #dee2e6; margin: 0; /* Remove horizontal margin */
-    min-width: 0; /* Allow shrinking */
+    border: 1px solid #dee2e6; margin: 0;
+    min-width: 0;
 }
 #lobby-canvas {
     border: 1px solid #ccc; background-color: #fff; margin-bottom: 10px;
     touch-action: none; max-width: 100%; display: block;
-    flex-shrink: 0; /* Prevent canvas from shrinking disproportionately */
+    flex-shrink: 0;
 }
 #lobby-drawing-tools {
     display: flex;
@@ -348,58 +210,23 @@ body {
 #lobby-controls button#start-game-btn:disabled { background-color: #aaa; cursor: not-allowed; }
 
 /* --- Emoji Picker Styles --- */
-#emoji-picker {
-    display: none; /* Hidden by default */
-    position: absolute;
-    bottom: 100%; /* Position above the input */
-    right: 0; /* Align with the right side */
-    margin-bottom: 5px; /* Space between picker and input */
-    background-color: white;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    width: 280px; /* Adjust width as needed */
-    max-height: 200px; /* Limit height */
-    overflow-y: auto;
-    z-index: 10; /* Ensure it's above other elements */
-}
-#emoji-picker span {
-    display: inline-block;
-    padding: 5px;
-    font-size: 1.4em;
-    cursor: pointer;
-    border-radius: 4px;
-}
-#emoji-picker span:hover {
-    background-color: #eee;
-}
+#emoji-picker { display: none; position: absolute; bottom: 100%; right: 0; margin-bottom: 5px; background-color: white; border: 1px solid #ccc; border-radius: 8px; padding: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.15); width: 280px; max-height: 200px; overflow-y: auto; z-index: 10; }
+#emoji-picker span { display: inline-block; padding: 5px; font-size: 1.4em; cursor: pointer; border-radius: 4px; }
+#emoji-picker span:hover { background-color: #eee; }
 
 
 /* --- Styles for Start Page (index.html - served at /game/) --- */
 /* (No changes needed for start page styles) */
-.start-container, .lobby-list-container {
-    background-color: #fff; padding: 30px 40px; border-radius: 8px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 20px;
-    width: 90%; max-width: 450px; /* Constrain width */
-}
+.start-container, .lobby-list-container { background-color: #fff; padding: 30px 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 20px; width: 90%; max-width: 450px; }
 .start-container h1, .lobby-list-container h2 { margin-bottom: 25px; color: #333; }
 .start-container label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; text-align: left;}
-.start-container input[type="text"] {
-    width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ccc;
-    border-radius: 4px; box-sizing: border-box; font-size: 1em;
-}
+.start-container input[type="text"] { width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1em; }
 .button-group { display: flex; gap: 15px; justify-content: center; margin-top: 15px; }
-.start-container button, .lobby-list-container button {
-    background-color: #007bff; color: white; padding: 12px 20px; border: none;
-    border-radius: 4px; cursor: pointer; font-size: 1.1em; transition: background-color 0.2s ease;
-}
+.start-container button, .lobby-list-container button { background-color: #007bff; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1.1em; transition: background-color 0.2s ease; }
 .start-container button:hover, .lobby-list-container button:hover { background-color: #0056b3; }
 .start-container button.secondary, .lobby-list-container button.secondary { background-color: #6c757d; }
 .start-container button.secondary:hover, .lobby-list-container button.secondary:hover { background-color: #5a6268; }
 .error-message { color: red; font-size: 0.9em; margin-top: -10px; margin-bottom: 15px; min-height: 1.2em; text-align: left;}
-
-/* Lobby List Styles */
 .lobby-list-container { max-width: 600px; }
 #lobby-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; margin-top: 15px; border: 1px solid #eee; text-align: left; border-radius: 4px; }
 #lobby-list li { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #eee; flex-wrap: wrap; gap: 5px;}
@@ -409,9 +236,6 @@ body {
 #lobby-list .lobby-host { font-size: 0.9em; color: #555; }
 #lobby-list .lobby-players { font-size: 0.9em; color: #555; }
 #lobby-list .lobby-phase { font-size: 0.8em; color: #888; font-style: italic; background-color: #eee; padding: 1px 4px; border-radius: 3px;}
-#lobby-list button.join-lobby-btn { /* Target specific button */
-    font-size: 0.9em; padding: 5px 10px; cursor: pointer; background-color: #28a745;
-    color: white; border: none; border-radius: 3px; margin-left: auto; /* Push right */
-}
+#lobby-list button.join-lobby-btn { font-size: 0.9em; padding: 5px 10px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 3px; margin-left: auto; }
 #lobby-list button.join-lobby-btn:hover { background-color: #218838; }
 #lobby-list button.join-lobby-btn:disabled { background-color: #6c757d; cursor: not-allowed; }

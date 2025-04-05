@@ -9,15 +9,19 @@
 <body>
     <!-- Header Area -->
     <div id="header-area">
-        <img src="/game/images/header.jpeg" alt="Drawing Game Logo" width="356" height="200" style="display: block; margin: 0 auto 15px auto; max-width: 100%;">
-        <h1>Lobby</h1>
-        <p>Status: <span id="status">Connecting...</span></p>
+        <!-- Adjusted image size (example: slightly larger 16:9) -->
+        <img src="/game/images/header.jpeg" alt="Drawing Game Logo" width="444" height="250" style="display: block; margin: 0 auto 20px auto; max-width: 100%;">
+        <!-- Lobby Title Moved -->
+        <!-- Status Removed -->
         <p id="lobby-status">Waiting for players...</p>
     </div>
 
     <div id="main-layout">
         <div id="player-list-area">
-            <h2>Players</h2>
+            <!-- Lobby Title Moved Here -->
+            <h2 id="lobby-title-display">Lobby</h2>
+            <!-- Players Header with Count -->
+            <h3>Players <span id="player-count-display">(?/?)</span></h3>
             <ul id="player-list"></ul>
         </div>
 
@@ -38,10 +42,8 @@
                     <option value="25">25px</option>
                 </select>
                 <button class="tool-button" id="undo-btn" title="Undo (Not Implemented)">↩️</button>
-                <!-- Updated Clear Button Title -->
                 <button class="tool-button" id="clear-canvas-btn" title="Clear Entire Canvas">🗑️</button>
             </div>
-            <!-- Start Game button moved out -->
         </div>
 
         <div id="chat-area">
@@ -57,7 +59,7 @@
         </div>
     </div>
 
-    <!-- Start Game Button Area (Moved Below Main Layout) -->
+    <!-- Start Game Button Area -->
     <div id="lobby-controls">
         <button id="start-game-btn" style="display: none;">Start Game</button>
     </div>

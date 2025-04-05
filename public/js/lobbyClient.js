@@ -1,5 +1,5 @@
 // public/js/lobbyClient.js - Script for lobby.html
-import * as UIManager from './uiManager.js';
+import * as UIManager from './uiManager.js'; // UIManager might not be needed here anymore
 import * as CanvasManager from './canvasManager.js';
 import * as PlayerListUI from './ui/playerListUI.js';
 import * as ChatUI from './ui/chatUI.js';
@@ -13,6 +13,7 @@ let currentLobbyId = null;
 let isHost = false;
 let hasJoined = false;
 let minPlayersToStart = 2; // Default, will be updated by lobby state
+const MAX_PLAYERS = 4; // Define max players constant for UI
 
 // --- DOM Elements ---
 const lobbyStatus = document.getElementById('lobby-status');
@@ -21,12 +22,14 @@ const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const lobbyCanvas = document.getElementById('lobby-canvas');
 const playerListElement = document.getElementById('player-list');
+const playerCountDisplay = document.getElementById('player-count-display'); // Added
 const emojiBtn = document.getElementById('emoji-btn');
 const emojiPicker = document.getElementById('emoji-picker');
 const drawingToolsContainer = document.getElementById('lobby-drawing-tools');
 const clearCanvasBtn = document.getElementById('clear-canvas-btn');
-const colorPicker = document.getElementById('color-picker'); // Get ref
-const lineWidthSelector = document.getElementById('line-width-selector'); // Get ref
+const colorPicker = document.getElementById('color-picker');
+const lineWidthSelector = document.getElementById('line-width-selector');
+const statusDisplay = document.getElementById('status'); // Ref to the connection status span
 
 // --- Initial Setup ---
 function initializeLobby() {
@@ -43,14 +46,13 @@ function initializeLobby() {
 
     if (!CanvasManager.initCanvas('lobby-canvas')) { handleFatalError("Failed to initialize lobby canvas."); return; }
 
-    // Set initial tool state in CanvasManager based on default HTML values
     CanvasManager.setColor(colorPicker?.value || '#000000');
     CanvasManager.setLineWidth(lineWidthSelector?.value || 5);
-    CanvasManager.setTool('pencil'); // Default tool
+    CanvasManager.setTool('pencil');
 
     setupSocketConnection(currentLobbyId, username);
     setupActionListeners();
-    populateEmojiPicker(); // Populate emojis
+    populateEmojiPicker();
 
 } // End of initializeLobby
 
@@ -61,7 +63,10 @@ function setupSocketConnection(lobbyId, username) {
 
     socket.on('connect', () => {
         console.log('Connected to server!', socket.id);
-        UIManager.updateStatus(true);
+        if (statusDisplay) { // Update connection status text
+             statusDisplay.textContent = 'Connected';
+             statusDisplay.style.color = 'green';
+        }
         if (!hasJoined) {
             console.log(`Emitting join lobby for ${lobbyId} as ${username}`);
             socket.emit('join lobby', { lobbyId, username });
@@ -70,16 +75,23 @@ function setupSocketConnection(lobbyId, username) {
 
     socket.on('disconnect', (reason) => {
         console.log(`Disconnected from server. Reason: ${reason}`);
-        UIManager.updateStatus(false);
+        if (statusDisplay) { // Update connection status text
+             statusDisplay.textContent = 'Disconnected';
+             statusDisplay.style.color = 'red';
+        }
         if(lobbyStatus) lobbyStatus.textContent = "Disconnected. Please refresh.";
         if(startGameBtn) startGameBtn.style.display = 'none';
+        if(playerCountDisplay) playerCountDisplay.textContent = '(0/?)'; // Reset count display
         CanvasManager.disableDrawing();
         hasJoined = false; myPlayerId = null; isHost = false;
     });
 
     socket.on('connect_error', (err) => {
         console.error("Lobby connection Error:", err);
-        UIManager.updateStatus(false);
+         if (statusDisplay) { // Update connection status text
+             statusDisplay.textContent = 'Connection Failed';
+             statusDisplay.style.color = 'red';
+        }
         if(lobbyStatus) lobbyStatus.textContent = "Connection failed.";
         alert("Failed to connect to the server. Please check your connection and refresh.");
     });
@@ -106,7 +118,7 @@ function setupSocketConnection(lobbyId, username) {
         PlayerListUI.updatePlayerList(state.players, myPlayerId);
         ChatUI.clearChat();
         state.chatHistory?.forEach(msg => ChatUI.addChatMessage(msg));
-        CanvasManager.clearCanvas(false); // Clear local canvas without emitting
+        CanvasManager.clearCanvas(false);
         if (state.canvasCommands && Array.isArray(state.canvasCommands)) {
              console.log(`Redrawing ${state.canvasCommands.length} canvas commands.`);
              setTimeout(() => {
@@ -114,7 +126,7 @@ function setupSocketConnection(lobbyId, username) {
              }, 100);
         } else { console.log("No canvas commands in initial state."); }
         isHost = (state.hostId === myPlayerId);
-        updateLobbyUI(state);
+        updateLobbyUI(state); // Pass full state
         CanvasManager.enableDrawing();
     });
 
@@ -123,7 +135,7 @@ function setupSocketConnection(lobbyId, username) {
         PlayerListUI.updatePlayerList(players, myPlayerId);
         const me = players.find(p => p.id === myPlayerId);
         isHost = me ? me.isHost : false;
-        updateLobbyUI({ players });
+        updateLobbyUI({ players }); // Pass only players for partial update
     });
     socket.on('lobby chat message', (msgData) => { ChatUI.addChatMessage(msgData); });
     socket.on('lobby draw update', (drawData) => { CanvasManager.drawExternalCommand(drawData); });
@@ -190,26 +202,18 @@ function setupActionListeners() {
     if (drawingToolsContainer) {
         drawingToolsContainer.addEventListener('click', (e) => {
             if (e.target.classList.contains('tool-button') && e.target.dataset.tool) {
-                // Deactivate other buttons
                 drawingToolsContainer.querySelectorAll('.tool-button.active').forEach(btn => btn.classList.remove('active'));
-                // Activate clicked button
                 e.target.classList.add('active');
                 const selectedTool = e.target.dataset.tool;
-                // Call CanvasManager to set the tool
                 CanvasManager.setTool(selectedTool);
-
-                // --- Handle non-implemented tools ---
                 if (selectedTool === 'fill' || selectedTool === 'shapes') {
                     console.log(`${selectedTool} tool selected (Not Implemented)`);
-                    // Optionally provide user feedback
-                    // alert(`${selectedTool} tool is not implemented yet.`);
                 }
             }
         });
 
-        // Specific listeners for controls
         if (colorPicker) {
-            colorPicker.addEventListener('input', (e) => { // Use 'input' for live updates
+            colorPicker.addEventListener('input', (e) => {
                 CanvasManager.setColor(e.target.value);
             });
         }
@@ -224,7 +228,6 @@ function setupActionListeners() {
         if (undoBtn) {
             undoBtn.addEventListener('click', () => {
                 console.log("Undo clicked (Not Implemented)");
-                // CanvasManager.undo();
             });
         }
 
@@ -238,21 +241,29 @@ function setupActionListeners() {
 
 } // End of setupActionListeners
 
+// --- Updated UI Update Logic ---
 function updateLobbyUI(state) {
+    // Use state.players if provided (full update), otherwise get from DOM (partial update)
     const players = state.players || Array.from(playerListElement?.children || []).map(li => ({ id: li.dataset.playerId, name: li.textContent.split(' (')[0], isHost: li.querySelector('.host-indicator') !== null }));
     const playerCount = players.length;
 
+    // Update Player Count Display
+    if (playerCountDisplay) {
+        playerCountDisplay.textContent = `(${playerCount}/${MAX_PLAYERS})`;
+    }
+
+    // Update Lobby Status Text (Simplified)
     if (lobbyStatus) {
         if (playerCount < minPlayersToStart) {
-            lobbyStatus.textContent = `Waiting... (${playerCount}/${minPlayersToStart})`;
+            lobbyStatus.textContent = `Waiting for more players...`;
         } else {
             const host = players.find(p => p.isHost);
             const hostName = host ? host.name : '...';
-            // Use MAX_PLAYERS_PER_LOBBY constant if available or hardcode
-            const maxPlayers = 4; // Assuming max players is 4, adjust if needed
-            lobbyStatus.textContent = isHost ? `Ready when you are! (${playerCount}/${maxPlayers})` : `Waiting for host (${hostName})... (${playerCount}/${maxPlayers})`;
+            lobbyStatus.textContent = isHost ? `Ready when you are!` : `Waiting for host (${hostName})...`;
         }
     }
+
+    // Update Start Game Button Visibility
     if (startGameBtn) {
         if (isHost && playerCount >= minPlayersToStart) {
             startGameBtn.style.display = 'block';
@@ -263,6 +274,7 @@ function updateLobbyUI(state) {
         }
     }
 } // End of updateLobbyUI
+
 
 function populateEmojiPicker() {
     if (!emojiPicker) return;
