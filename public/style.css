@@ -125,16 +125,17 @@ body {
     position: relative; /* Positioning context for overlay */
     /* Padding removed */
 }
+/* Make sure we do NOT force a crosshair in the CSS; we let JS handle 'none' vs. 'default' */
 #drawing-canvas, #lobby-canvas {
     border: 1px solid #dee2e6;
-    /* cursor: crosshair; Let JS handle cursor */
-    display: block;
     background-color: #fff;
-    touch-action: none; /* Prevent default touch actions like scroll/zoom */
+    touch-action: none;
     max-width: 100%;
-    box-sizing: border-box; /* Ensure padding/border are included in width/height */
-    margin: 0; /* Remove default margin */
-    padding: 0; /* Remove default padding */
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    /* REMOVE any forced "cursor: crosshair" here */
+    /* cursor: crosshair;  <-- remove this */
 }
 #ready-button { background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1em; margin-top: 10px; transition: background-color 0.2s ease; flex-shrink: 0; }
 #ready-button:hover { background-color: #218838; }

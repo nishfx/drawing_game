@@ -308,15 +308,16 @@ class Lobby {
         }
     }
 
-    handleUndoLastDraw(socket, data) {
+   handleUndoLastDraw(socket, data) {
         if (!this.players.has(socket.id)) return;
         const playerId = socket.id;
         const { cmdId, strokeId } = data || {};
         if (!cmdId && !strokeId) {
-            console.warn(`[Lobby ${this.id}] Undo request from ${playerId} missing cmdId/strokeId`);
+            console.warn(`[Lobby ${this.id}] Undo request missing cmdId/strokeId from ${playerId}`);
             return;
         }
         let commandsToRemove = [];
+
         if (strokeId) {
             this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => {
                 if (cmd.strokeId === strokeId && cmd.playerId === playerId) {
@@ -326,7 +327,7 @@ class Lobby {
                 return true;
             });
             if (commandsToRemove.length > 0) {
-                console.log(`[Lobby ${this.id}] Undo stroke=${strokeId} by player=${playerId}, removed ${commandsToRemove.length} commands.`);
+                console.log(`[Lobby ${this.id}] Undo stroke=${strokeId}, removed ${commandsToRemove.length} commands from ${playerId}.`);
                 this.io.to(this.id).emit('lobby commands removed', {
                     cmdIds: commandsToRemove,
                     strokeId,
@@ -340,14 +341,14 @@ class Lobby {
                 if (foundCmd.playerId === playerId) {
                     this.lobbyCanvasCommands.splice(index, 1);
                     commandsToRemove.push(foundCmd.cmdId);
-                    console.log(`[Lobby ${this.id}] Undo single cmd=${foundCmd.cmdId} by player=${playerId}`);
+                    console.log(`[Lobby ${this.id}] Undo single cmd=${foundCmd.cmdId} by ${playerId}`);
                     this.io.to(this.id).emit('lobby commands removed', {
                         cmdIds: commandsToRemove,
                         strokeId: null,
                         playerId
                     });
                 } else {
-                    console.warn(`[Lobby ${this.id}] Player ${playerId} tried to undo command of another player?`);
+                    console.warn(`[Lobby ${this.id}] Player ${playerId} tried to undo cmd of another player?`);
                 }
             }
         }

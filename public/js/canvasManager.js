@@ -22,23 +22,41 @@ let currentStrokeStyle = '#000000';
 let currentLineWidth = 5;
 const CANVAS_BACKGROUND_COLOR = "#FFFFFF";
 
+// **Declare currentStrokeId here to avoid errors**
 let currentStrokeId = null;
 
 // For shape drawing
 let shapeStartX = null;
 let shapeStartY = null;
 
-// For storing your own commands (so you can undo)
+// For storing *my* commands (so you can local-undo)
 let myDrawHistory = [];
-// For storing *all* commands; used for redraw
+
+// For storing *all* commands from everyone; used to redraw
 let fullDrawHistory = [];
+
+// Reasonable limit
 const MAX_HISTORY = 500;
 
 let emitDrawCallback = null;
 
-// ------------------------------------------------
-// Initialization
-// ------------------------------------------------
+/**
+ * Generators for unique IDs.
+ * Use the playerId in them so no cross-player collisions.
+ */
+function generateStrokeId() {
+    return `${myPlayerId}-stroke-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
+}
+function generateCommandId() {
+    return `${myPlayerId}-cmd-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+/**
+ * Initialize the canvas and an overlay for cursor previews or shape previews.
+ * @param {string} canvasId
+ * @param {Function} drawEventEmitter
+ * @returns {boolean}
+ */
 export function initCanvas(canvasId, drawEventEmitter) {
     canvas = document.getElementById(canvasId);
     if (!canvas) {
@@ -51,15 +69,15 @@ export function initCanvas(canvasId, drawEventEmitter) {
         return false;
     }
 
-    // Create an overlay for shape previews, etc.
+    // Create an overlay for shape previews / custom cursor
     overlayCanvas = document.createElement('canvas');
-    overlayCanvas.width = canvas.width;
-    overlayCanvas.height = canvas.height;
+    overlayCanvas.width = canvas.width;     // same pixel resolution as main canvas
+    overlayCanvas.height = canvas.height;   // ...
     overlayCanvas.style.position = 'absolute';
     overlayCanvas.style.top = canvas.offsetTop + 'px';
     overlayCanvas.style.left = canvas.offsetLeft + 'px';
-    overlayCanvas.style.width = canvas.clientWidth + 'px';
-    overlayCanvas.style.height = canvas.clientHeight + 'px';
+    overlayCanvas.style.width = canvas.clientWidth + 'px';   // same CSS size as main canvas
+    overlayCanvas.style.height = canvas.clientHeight + 'px'; // ...
     overlayCanvas.style.pointerEvents = 'none';
     canvas.parentNode.insertBefore(overlayCanvas, canvas);
     overlayCtx = overlayCanvas.getContext('2d');
@@ -75,20 +93,20 @@ export function initCanvas(canvasId, drawEventEmitter) {
     overlayCtx.lineJoin = 'round';
     overlayCtx.lineCap = 'round';
 
-    // Mouse events on the canvas itself
+    // Mouse events
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseup', handleMouseUp);   // attach to canvas, not window
+    canvas.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('mouseleave', handleMouseLeave);
     canvas.addEventListener('mouseenter', handleMouseEnter);
 
-    // Touch events on the canvas
+    // Touch events
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd);
     canvas.addEventListener('touchcancel', handleTouchEnd);
 
-    // Listen for window resizes, re‐sync overlay
+    // Listen for window resizes, so we can re-sync overlay
     window.addEventListener('resize', () => {
         resyncOverlayPosition();
     });
@@ -99,18 +117,27 @@ export function initCanvas(canvasId, drawEventEmitter) {
     return true;
 }
 
+/**
+ * Adjust the overlay canvas to keep it exactly covering the main canvas’s displayed size.
+ */
 function resyncOverlayPosition() {
     if (!canvas || !overlayCanvas) return;
     const rect = canvas.getBoundingClientRect();
+
+    // Keep the overlay's internal pixel size equal to the main canvas's 2D size
+    overlayCanvas.width = canvas.width;
+    overlayCanvas.height = canvas.height;
+
+    // Match the overlay’s CSS position & size to the bounding box
     overlayCanvas.style.top = rect.top + 'px';
     overlayCanvas.style.left = rect.left + 'px';
     overlayCanvas.style.width = rect.width + 'px';
     overlayCanvas.style.height = rect.height + 'px';
 }
 
-// ------------------------------------------------
-// General State
-// ------------------------------------------------
+// -----------------------------
+// State
+// -----------------------------
 export function setPlayerId(playerId) {
     myPlayerId = playerId;
     console.log("CanvasManager Player ID set to:", myPlayerId);
@@ -130,15 +157,15 @@ export function disableDrawing() {
     if (!canvas) return;
     drawingEnabled = false;
     isDrawing = false;
-    currentStrokeId = null;
     clearOverlay();
+    // When disabled, show 'not-allowed' inside the canvas
     canvas.style.cursor = 'not-allowed';
     console.log("Drawing disabled");
 }
 
-// ------------------------------------------------
-// Clearing and Exporting
-// ------------------------------------------------
+// -----------------------------
+// Clearing / Exporting
+// -----------------------------
 export function clearCanvas(emitEvent = true) {
     if (!context || !canvas) return;
 
@@ -163,6 +190,10 @@ export function clearCanvas(emitEvent = true) {
     }
 }
 
+/**
+ * Returns PNG data URL of the current canvas.
+ * @returns {string|null}
+ */
 export function getDrawingDataURL() {
     if (!canvas) return null;
     try {
@@ -173,9 +204,9 @@ export function getDrawingDataURL() {
     }
 }
 
-// ------------------------------------------------
+// -----------------------------
 // Tool Settings
-// ------------------------------------------------
+// -----------------------------
 export function setTool(toolName) {
     currentTool = toolName;
     console.log("Tool set to:", currentTool);
@@ -203,35 +234,18 @@ export function setLineWidth(width) {
     }
 }
 
-// ------------------------------------------------
+// -----------------------------
 // History & Redraw
-// ------------------------------------------------
-function generateCommandId() {
-    return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 11)}`;
-}
-function generateStrokeId() {
-    return `stroke-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
-}
-
-function addCommandToHistory(command, playerId) {
-    const fullCommand = { ...command, playerId };
-    fullDrawHistory.push(fullCommand);
-    if (fullDrawHistory.length > MAX_HISTORY) {
-        fullDrawHistory.shift();
-    }
-    if (playerId === myPlayerId && command.type !== 'clear') {
-        myDrawHistory.push(fullCommand);
-        if (myDrawHistory.length > MAX_HISTORY) {
-            myDrawHistory.shift();
-        }
-    }
-}
-
+// -----------------------------
 function clearHistory() {
     myDrawHistory = [];
     fullDrawHistory = [];
 }
 
+/**
+ * Loads a list of commands (e.g. from the server’s lobby history) and redraws the canvas.
+ * @param {Array} commands
+ */
 export function loadAndDrawHistory(commands) {
     console.log(`Loading ${commands.length} commands from history.`);
     context.fillStyle = CANVAS_BACKGROUND_COLOR;
@@ -246,13 +260,25 @@ export function loadAndDrawHistory(commands) {
     redrawCanvasFromHistory();
 }
 
+/**
+ * Remove commands from local memory (either by exact cmdId list or strokeId) for the given player, then redraw.
+ * @param {string[]} idsToRemove
+ * @param {string|null} strokeIdToRemove
+ * @param {string|null} ownerPlayerId
+ */
 export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerPlayerId = null) {
+    if (!ownerPlayerId) {
+        // If no owner is specified, bail to avoid removing other players' stuff
+        console.warn("removeCommands called with no ownerPlayerId. Skipping to avoid unwanted removal.");
+        return;
+    }
+
     let removedCount = 0;
 
+    // If removing entire stroke by ID
     if (strokeIdToRemove) {
         fullDrawHistory = fullDrawHistory.filter(cmd => {
-            if (cmd.strokeId === strokeIdToRemove &&
-                (!ownerPlayerId || cmd.playerId === ownerPlayerId)) {
+            if (cmd.strokeId === strokeIdToRemove && cmd.playerId === ownerPlayerId) {
                 removedCount++;
                 return false;
             }
@@ -265,11 +291,12 @@ export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerP
             return true;
         });
         console.log(`Removed ${removedCount} commands for stroke ${strokeIdToRemove} of player ${ownerPlayerId}.`);
-    } else if (idsToRemove.length > 0) {
+    }
+    // Else if removing by an array of cmdIds
+    else if (idsToRemove.length > 0) {
         const idSet = new Set(idsToRemove);
         fullDrawHistory = fullDrawHistory.filter(cmd => {
-            if (idSet.has(cmd.cmdId) &&
-                (!ownerPlayerId || cmd.playerId === ownerPlayerId)) {
+            if (idSet.has(cmd.cmdId) && cmd.playerId === ownerPlayerId) {
                 removedCount++;
                 return false;
             }
@@ -287,10 +314,13 @@ export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerP
     if (removedCount > 0) {
         redrawCanvasFromHistory();
     } else {
-        console.warn(`No commands found to remove for stroke=${strokeIdToRemove}, player=${ownerPlayerId}`);
+        console.warn(`No commands found to remove (stroke=${strokeIdToRemove}, owner=${ownerPlayerId}).`);
     }
 }
 
+/**
+ * Redraw everything from our fullDrawHistory.
+ */
 function redrawCanvasFromHistory() {
     if (!context || !canvas) return;
     console.log(`Redrawing canvas from ${fullDrawHistory.length} commands.`);
@@ -327,7 +357,11 @@ function redrawCanvasFromHistory() {
     }
 }
 
-// Force the correct color/size
+/**
+ * Execute a single draw command on the provided 2D context.
+ * @param {Object} cmd
+ * @param {CanvasRenderingContext2D} ctx
+ */
 function executeCommand(cmd, ctx) {
     if (!cmd || !cmd.type) return;
 
@@ -393,7 +427,7 @@ function executeCommand(cmd, ctx) {
         }
 
         case 'clear':
-            // server removes history, so no local action needed
+            // We never “draw” a clear command; the code uses removeCommands
             break;
 
         default:
@@ -401,18 +435,23 @@ function executeCommand(cmd, ctx) {
     }
 }
 
-// For external draws from others
+/**
+ * Draw a command from another player. If it's ours, skip, since we already did it locally.
+ */
 export function drawExternalCommand(data) {
-    // If it's ours, skip double-adding
-    if (data && data.playerId === myPlayerId) return;
+    if (data && data.playerId === myPlayerId) return; // skip double-adding
     if (!context || !data || !data.cmdId || !data.playerId) {
         console.warn("Invalid external command:", data);
         return;
     }
     if (data.type === 'clear') {
-        return; // server will handle removing
+        return; // server handles removal, we handle re-draw from removeCommands
     }
-    addCommandToHistory(data, data.playerId);
+    // Add to full history, draw on local
+    fullDrawHistory.push({ ...data });
+    if (fullDrawHistory.length > MAX_HISTORY) {
+        fullDrawHistory.shift();
+    }
 
     try {
         context.save();
@@ -423,9 +462,9 @@ export function drawExternalCommand(data) {
     }
 }
 
-// ------------------------------------------------
+// -----------------------------
 // Undo
-// ------------------------------------------------
+// -----------------------------
 export function undoLastAction(socket) {
     if (!myPlayerId) {
         console.warn("Cannot undo: Player ID not set.");
@@ -448,7 +487,7 @@ export function undoLastAction(socket) {
 
     console.log(`Requesting undo for stroke=${strokeIdToUndo} or cmd=${cmdIdToUndo}`);
 
-    // remove from local
+    // Remove from local myDrawHistory
     if (strokeIdToUndo) {
         myDrawHistory = myDrawHistory.filter(cmd => cmd.strokeId !== strokeIdToUndo);
     } else {
@@ -465,9 +504,9 @@ export function undoLastAction(socket) {
     }
 }
 
-// ------------------------------------------------
+// -----------------------------
 // Drawing Logic / Mouse & Touch
-// ------------------------------------------------
+// -----------------------------
 function getEventCoords(e) {
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
@@ -482,6 +521,7 @@ function getEventCoords(e) {
         clientY = e.clientY;
     }
 
+    // Convert screen coords -> “canvas drawing” coords
     const xRel = clientX - rect.left;
     const yRel = clientY - rect.top;
     const scaleX = canvas.width / rect.width;
@@ -493,25 +533,23 @@ function getEventCoords(e) {
 
 function setCursorStyle() {
     if (!canvas) return;
-    let cursorStyle = 'not-allowed';
-    if (drawingEnabled) {
-        // Are we in a state that shows a crosshair or text or copy?
-        const showCrosshairTools = ['pencil','eraser','rectangle','ellipse'];
-        if (currentTool === 'text') {
-            cursorStyle = 'text';
-        } else if (currentTool === 'fill') {
-            cursorStyle = 'copy';
-        } else if (showCrosshairTools.includes(currentTool)) {
-            cursorStyle = 'crosshair';
-        }
-        // If user is actually drawing, hide the cursor
-        if (isDrawing) {
-            cursorStyle = 'none';
-        }
+    if (!drawingEnabled) {
+        // If not allowed to draw
+        canvas.style.cursor = 'not-allowed';
+        return;
     }
-    canvas.style.cursor = cursorStyle;
+    // If drawing is enabled, inside the canvas we want the custom circle, so hide the system cursor:
+    // We'll actually set to 'none' once we are sure the mouse is in the canvas.
+    if (isMouseOverCanvas) {
+        canvas.style.cursor = 'none';
+    } else {
+        canvas.style.cursor = 'default';
+    }
 }
 
+/**
+ * Clear the overlay canvas fully.
+ */
 function clearOverlay() {
     if (!overlayCtx || !overlayCanvas) return;
     if (overlayCanvas.width !== canvas.width || overlayCanvas.height !== canvas.height) {
@@ -521,6 +559,9 @@ function clearOverlay() {
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 }
 
+/**
+ * Draw a circle cursor preview on the overlay, based on the current line width & color.
+ */
 function drawCursorPreview(x, y) {
     if (!overlayCtx || !drawingEnabled || isDrawing) {
         clearOverlay();
@@ -536,6 +577,9 @@ function drawCursorPreview(x, y) {
     overlayCtx.closePath();
 }
 
+/**
+ * Update the custom circle cursor if the mouse is inside and not currently drawing, etc.
+ */
 function updateCursorPreview(x, y) {
     if (!isMouseOverCanvas || !drawingEnabled || isDrawing) {
         clearOverlay();
@@ -545,16 +589,15 @@ function updateCursorPreview(x, y) {
     setCursorStyle();
 }
 
-// ------------------------------------------------
-// Mouse Events
-// ------------------------------------------------
 function handleMouseEnter(e) {
     isMouseOverCanvas = true;
+    setCursorStyle();
     const { x, y } = getEventCoords(e);
     currentMouseX = x;
     currentMouseY = y;
     updateCursorPreview(x, y);
 }
+
 function handleMouseLeave(e) {
     if (isDrawing) {
         // finalize the stroke if the mouse leaves mid-draw
@@ -583,8 +626,8 @@ function handleMouseDown(e) {
     setCursorStyle();
 
     if (currentTool === 'pencil' || currentTool === 'eraser') {
+        // Start a new stroke
         currentStrokeId = generateStrokeId();
-        // apply local color & lineWidth so you see correct thickness
         context.lineWidth = currentLineWidth;
         context.strokeStyle = (currentTool === 'eraser') ? '#000000' : currentStrokeStyle;
         context.fillStyle   = currentStrokeStyle;
@@ -594,13 +637,13 @@ function handleMouseDown(e) {
         context.moveTo(x, y);
     }
     else if (currentTool === 'text') {
-        currentStrokeId = generateStrokeId();
+        const strokeId = generateStrokeId();
         const userText = prompt("Enter text:");
         if (userText && userText.trim()) {
             const cmdId = generateCommandId();
             const command = {
                 cmdId,
-                strokeId: currentStrokeId,
+                strokeId,
                 type: 'text',
                 x, y,
                 text: userText.trim(),
@@ -609,14 +652,13 @@ function handleMouseDown(e) {
                 tool: 'pencil' // treat text color same as pencil
             };
             executeCommand(command, context);
-            addCommandToHistory(command, myPlayerId);
+            addCommandToLocalHistory(command);
             if (emitDrawCallback) emitDrawCallback(command);
         }
         isDrawing = false;
-        currentStrokeId = null;
     }
     else if (currentTool === 'fill') {
-        // fill on mouseUp
+        // We'll do the fill on mouseUp
     }
     else if (currentTool === 'rectangle' || currentTool === 'ellipse') {
         currentStrokeId = generateStrokeId();
@@ -637,18 +679,14 @@ function handleMouseMove(e) {
     }
 
     if (currentTool === 'pencil' || currentTool === 'eraser') {
-        // local draw
         context.lineTo(x, y);
         context.stroke();
-
-        // broadcast
         emitDrawSegment(lastX, lastY, x, y);
-
         lastX = x;
         lastY = y;
     }
     else if (currentTool === 'rectangle' || currentTool === 'ellipse') {
-        // shape preview
+        // shape preview on overlay
         clearOverlay();
         overlayCtx.globalCompositeOperation = 'source-over';
         overlayCtx.strokeStyle = currentStrokeStyle;
@@ -668,7 +706,7 @@ function handleMouseMove(e) {
             const cy = (y0 + y) / 2;
             const rx = Math.abs(x - x0) / 2;
             const ry = Math.abs(y - y0) / 2;
-            overlayCtx.ellipse(cx, cy, rx, ry, 0, 0, 2*Math.PI);
+            overlayCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
         }
         overlayCtx.stroke();
         overlayCtx.closePath();
@@ -678,7 +716,6 @@ function handleMouseMove(e) {
 function handleMouseUp(e) {
     if (!drawingEnabled || !myPlayerId) {
         isDrawing = false;
-        currentStrokeId = null;
         return;
     }
     if (!isDrawing) return;
@@ -686,17 +723,19 @@ function handleMouseUp(e) {
     finishStroke();
 }
 
+/**
+ * Finalize the stroke or shape on mouse/touch up.
+ */
 function finishStroke() {
-    // finalizing a stroke
     const x = currentMouseX;
     const y = currentMouseY;
 
     if (currentTool === 'pencil' || currentTool === 'eraser') {
-        // if barely moved
+        // If user hardly moved, force a tiny line so we have something
         if (x === lastX && y === lastY) {
-            context.lineTo(x+0.01, y+0.01);
+            context.lineTo(x + 0.01, y + 0.01);
             context.stroke();
-            emitDrawSegment(x, y, x+0.01, y+0.01);
+            emitDrawSegment(x, y, x + 0.01, y + 0.01);
         }
         context.closePath();
     }
@@ -712,7 +751,7 @@ function finishStroke() {
             tool: 'pencil'
         };
         executeCommand(command, context);
-        addCommandToHistory(command, myPlayerId);
+        addCommandToLocalHistory(command);
         if (emitDrawCallback) emitDrawCallback(command);
     }
     else if (currentTool === 'rectangle' || currentTool === 'ellipse') {
@@ -730,15 +769,13 @@ function finishStroke() {
             size: currentLineWidth,
             tool: 'pencil'
         };
-        // do local final
         executeCommand(command, context);
-        addCommandToHistory(command, myPlayerId);
+        addCommandToLocalHistory(command);
         if (emitDrawCallback) {
             emitDrawCallback(command);
         }
     }
 
-    // reset
     isDrawing = false;
     currentStrokeId = null;
     shapeStartX = null;
@@ -748,9 +785,25 @@ function finishStroke() {
     updateCursorPreview(x, y);
 }
 
-// ------------------------------------------------
+/**
+ * Helper to record a command in local & full history (for immediate undo/redraw).
+ */
+function addCommandToLocalHistory(command) {
+    fullDrawHistory.push(command);
+    if (fullDrawHistory.length > MAX_HISTORY) {
+        fullDrawHistory.shift();
+    }
+    if (command.playerId === myPlayerId && command.type !== 'clear') {
+        myDrawHistory.push(command);
+        if (myDrawHistory.length > MAX_HISTORY) {
+            myDrawHistory.shift();
+        }
+    }
+}
+
+// -----------------------------
 // Touch Events
-// ------------------------------------------------
+// -----------------------------
 function handleTouchStart(e) {
     if (e.target !== canvas) return;
     if (!drawingEnabled) return;
@@ -767,7 +820,6 @@ function handleTouchMove(e) {
 function handleTouchEnd(e) {
     if (!drawingEnabled || !myPlayerId) {
         isDrawing = false;
-        currentStrokeId = null;
         return;
     }
     finishStroke();
@@ -775,9 +827,9 @@ function handleTouchEnd(e) {
     setCursorStyle();
 }
 
-// ------------------------------------------------
-// Low-level "send segment" for pencil/eraser
-// ------------------------------------------------
+/**
+ * Emit a 'line' command for each small pencil/eraser segment.
+ */
 function emitDrawSegment(x0, y0, x1, y1) {
     if (!emitDrawCallback || !myPlayerId || !currentStrokeId) return;
     const cmdId = generateCommandId();
@@ -788,8 +840,18 @@ function emitDrawSegment(x0, y0, x1, y1) {
         x0, y0, x1, y1,
         tool: currentTool,
         color: (currentTool === 'eraser') ? null : currentStrokeStyle,
-        size: currentLineWidth
+        size: currentLineWidth,
+        playerId: myPlayerId
     };
-    addCommandToHistory(command, myPlayerId);
+    // Record locally so we see our line immediately
+    fullDrawHistory.push(command);
+    if (fullDrawHistory.length > MAX_HISTORY) {
+        fullDrawHistory.shift();
+    }
+    myDrawHistory.push(command);
+    if (myDrawHistory.length > MAX_HISTORY) {
+        myDrawHistory.shift();
+    }
+    // Then emit
     emitDrawCallback(command);
 }
