@@ -19,54 +19,25 @@
             <h2 id="lobby-title-display">Lobby</h2>
             <h3>Players <span id="player-count-display">(?/?)</span></h3>
             <ul id="player-list"></ul>
-
-            <!-- Game Settings (Host Only) -->
-            <div id="game-settings-area" style="display: none;">
-                 <h4>Game Settings</h4>
-                 <div class="setting-item">
-                     <label for="game-mode-select">Mode:</label>
-                     <select id="game-mode-select">
-                         <option value="ArtistPvp" selected>Artist PvP</option>
-                         <!-- Add other modes later -->
-                         <!-- <option value="StoryMode">Story Mode</option> -->
-                     </select>
-                 </div>
-                 <div class="setting-item">
-                     <label for="rounds-select">Rounds:</label>
-                     <select id="rounds-select">
-                         <option value="1">1</option>
-                         <option value="2">2</option>
-                         <option value="3" selected>3</option>
-                         <option value="4">4</option>
-                         <option value="5">5</option>
-                     </select>
-                 </div>
-                  <div class="setting-item">
-                     <label for="draw-time-select">Draw Time (s):</label>
-                     <select id="draw-time-select">
-                         <option value="45">45s</option>
-                         <option value="60">60s</option>
-                         <option value="90" selected>90s</option>
-                         <option value="120">120s</option>
-                         <option value="180">180s</option>
-                     </select>
-                 </div>
-                 <button id="save-settings-btn">Apply Settings</button>
-            </div>
-            <!-- End Game Settings -->
-
         </div>
 
         <!-- Canvas Area and Tools -->
         <div id="lobby-canvas-area" style="position: relative;">
             <canvas id="lobby-canvas" width="600" height="450"></canvas>
+            <!-- Overlay canvas is inserted here by JS -->
+
             <div id="lobby-drawing-tools">
+                <!-- Existing tool buttons -->
                 <button class="tool-button active" data-tool="pencil" title="Pencil">✏️</button>
                 <button class="tool-button" data-tool="eraser" title="Eraser">🧼</button>
                 <button class="tool-button" data-tool="fill" title="Fill">💧</button>
                 <button class="tool-button" data-tool="rectangle" title="Rectangle Tool">□</button>
                 <button class="tool-button" data-tool="ellipse" title="Ellipse Tool">○</button>
+
+                <!-- NEW Text Button -->
                 <button class="tool-button" data-tool="text" title="Text Tool">T</button>
+
+                <!-- Color Picker, Line Width, etc. -->
                 <input type="color" id="color-picker" value="#000000" title="Color Picker">
                 <select id="line-width-selector" title="Line Width">
                     <option value="2">2px</option>
@@ -75,12 +46,10 @@
                     <option value="15">15px</option>
                     <option value="25">25px</option>
                 </select>
+
+                <!-- Action Buttons -->
                 <button class="tool-button" id="undo-btn" title="Undo Last Action">↩️</button>
                 <button class="tool-button" id="clear-canvas-btn" title="Clear Entire Canvas">🗑️</button>
-            </div>
-            <div id="ai-feature-area">
-                <button id="ask-ai-btn" title="Ask AI to interpret the drawing (Host only)">Ask AI</button>
-                <textarea id="ai-interpretation-box" rows="2" readonly placeholder="AI interpretation will appear here..."></textarea>
             </div>
         </div>
 

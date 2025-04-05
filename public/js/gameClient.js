@@ -1,194 +1,220 @@
+// public/js/gameClient.js
+// (Restored original socket path)
 import * as UIManager from './uiManager.js';
-import * as CanvasManager from './canvasManager.js';
-import * as ChatUI from './ui/chatUI.js';
-import * as ResultsUI from './ui/resultsUI.js';
-import * as RatingUI from './ui/ratingUI.js'; // NEW UI module for rating phase
+import * as CanvasManager from './canvasManager.js'; // Game uses canvas but without tools
+import * as VotingUI from './ui/votingUI.js';
+import * as ChatUI from './ui/chatUI.js'; // Import ChatUI
 
 console.log("Game Client script loaded.");
 
-const socketPath = '/game/socket.io';
+// --- Specify path for Socket.IO connection ---
+const socketPath = '/game/socket.io'; // Use path WITH /game prefix
 const socket = io({ path: socketPath });
+// --- End Specify ---
 
 let myPlayerId = null;
 let currentLobbyId = null;
-let currentWord = ''; // Single word for the round
-let isHost = false; // Track if the current client is the host
 
 // --- DOM Elements ---
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const readyButton = document.getElementById('ready-button');
-const statusDisplay = document.getElementById('status');
-const wordHintElement = document.getElementById('word-hint');
-const gameModeDisplay = document.getElementById('game-mode-display'); // To show game mode
-const roundDisplay = document.getElementById('round-display'); // To show round number
-const ratingGrid = document.getElementById('rating-grid'); // Container for rating items
+const votingArea = document.getElementById('voting-area');
+const statusDisplay = document.getElementById('status'); // Connection status
 
 // --- Initial Setup ---
 function initializeGame() {
     const urlParams = new URLSearchParams(window.location.search);
-    currentLobbyId = urlParams.get('lobbyId');
+    currentLobbyId = urlParams.get('lobbyId'); // Get lobbyId from query param
     const username = sessionStorage.getItem('drawingGameUsername');
 
     if (!currentLobbyId || !username) { handleFatalError("Missing lobby ID or username."); return; }
 
     console.log(`Initializing game for lobby: ${currentLobbyId}, user: ${username}`);
-
-    if (!CanvasManager.initCanvas('drawing-canvas', null)) { handleFatalError("Failed to initialize game canvas."); return; }
+    // Initialize canvas but don't pass draw handler (no drawing tools here)
+    // Game canvas doesn't need the event emitter callback
+    if (!CanvasManager.initCanvas('drawing-canvas', null)) {
+        handleFatalError("Failed to initialize game canvas."); return;
+    }
+    // Game canvas starts disabled, enabled only by server state
     CanvasManager.disableDrawing();
 
     // --- Socket Event Listeners ---
     socket.on('connect', () => {
-        console.log('Connected!', socket.id);
-        myPlayerId = socket.id;
-        CanvasManager.setPlayerId(myPlayerId);
-        if (statusDisplay) { statusDisplay.textContent = 'Connected'; statusDisplay.style.color = 'green'; }
-        socket.emit('join game room', { lobbyId: currentLobbyId, username });
+        console.log('Connected to game server!', socket.id);
+        myPlayerId = socket.id; // Set player ID
+        CanvasManager.setPlayerId(myPlayerId); // Inform CanvasManager
+        if (statusDisplay) {
+            statusDisplay.textContent = 'Connected';
+            statusDisplay.style.color = 'green';
+        }
+        // --- Emit event to join the specific game room ---
+        console.log(`Emitting join game room for lobby ${currentLobbyId}`);
+        socket.emit('join game room', { lobbyId: currentLobbyId, username }); // Send necessary info
     });
 
     socket.on('disconnect', (reason) => {
-        console.log(`Disconnected: ${reason}`);
-        if (statusDisplay) { statusDisplay.textContent = 'Disconnected'; statusDisplay.style.color = 'red'; }
-        UIManager.stopTimer(); myPlayerId = null; CanvasManager.setPlayerId(null); isHost = false;
-        UIManager.showGamePhaseUI('WAITING', {});
-        document.getElementById('game-status').textContent = "Disconnected.";
-        ChatUI.addChatMessage({ text: "Disconnected.", type: 'system' });
+        console.log(`Disconnected. Reason: ${reason}`);
+        if (statusDisplay) {
+            statusDisplay.textContent = 'Disconnected';
+            statusDisplay.style.color = 'red';
+        }
+        UIManager.stopTimer();
+        myPlayerId = null;
+        CanvasManager.setPlayerId(null);
+        UIManager.showGamePhaseUI('WAITING', { playerCount: 0, minPlayers: 2 });
+        document.getElementById('game-status').textContent = "Disconnected. Refresh or return to start.";
+        ChatUI.addChatMessage({ text: "Disconnected from server.", type: 'system' });
     });
-    socket.on('connect_error', (err) => { /* ... error handling ... */ });
-    socket.on('connection rejected', (reason) => { /* ... rejection handling ... */ });
+    socket.on('connect_error', (err) => {
+        console.error("Game connection Error:", err);
+        if (statusDisplay) {
+            statusDisplay.textContent = 'Connection Failed';
+            statusDisplay.style.color = 'red';
+        }
+        document.getElementById('game-status').textContent = "Connection failed.";
+        alert("Connection failed. Please refresh.");
+    });
+    socket.on('connection rejected', (reason) => {
+        console.error('Game Rejected:', reason); alert(`Cannot join game: ${reason}`);
+        window.location.href = '/game/'; // Redirect to game base path
+    });
+
+    // No 'my info' needed, ID set on connect
 
     socket.on('update player list', (players) => { UIManager.updatePlayerList(players, myPlayerId); });
-    socket.on('chat message', (msgData) => { ChatUI.addChatMessage(msgData, msgData.type || 'normal'); });
-    socket.on('system message', (message) => { ChatUI.addChatMessage({ text: message, type: 'system' }); });
-
-    // Word assignment is handled in game state update now for single word
+    socket.on('chat message', (msgData) => {
+        ChatUI.addChatMessage(msgData, msgData.type || 'normal'); // Use ChatUI
+    });
+    socket.on('system message', (message) => {
+        ChatUI.addChatMessage({ text: message, type: 'system' }); // Use ChatUI
+    });
 
     // --- Game Flow Events ---
     socket.on('game state update', (state) => {
         console.log("Game State Update:", state);
-        if (!myPlayerId) myPlayerId = socket.id;
+        if (!myPlayerId) myPlayerId = socket.id; // Ensure ID is set
         CanvasManager.setPlayerId(myPlayerId);
-        isHost = (state.hostId === myPlayerId); // Update host status
-
-        // Update general UI elements
-        if (gameModeDisplay) gameModeDisplay.textContent = state.gameMode || 'Game'; // Show game mode if available
-        if (roundDisplay) roundDisplay.textContent = (state.phase !== 'LOBBY' && state.currentRound && state.totalRounds) ? `Round ${state.currentRound} / ${state.totalRounds}` : '';
-
-        currentWord = state.word || ''; // Update current word
 
         // Update UI based on phase
         UIManager.showGamePhaseUI(state.phase, {
-            myPlayerId: myPlayerId,
-            isHost: isHost, // Pass host status to UI Manager
             word: state.word,
-            scores: state.scores,
             drawings: state.drawings,
-            ratings: state.ratings,
-            isRatingInProgress: state.isRatingInProgress, // Pass rating progress info
+            scores: state.scores,
+            myPlayerId: myPlayerId,
             minPlayers: state.minPlayers,
-            playerCount: state.playerCount,
-            readyCount: state.readyCount,
-            currentRound: state.currentRound,
-            totalRounds: state.totalRounds,
+            playerCount: state.playerCount
         });
 
-        // Sync timer
-        if ((state.phase === 'DRAWING' || state.phase === 'MANUAL_RATING' || state.phase === 'RESULTS' || state.phase === 'FINAL_SCOREBOARD') && state.timerDuration && state.timerStart) {
+        // Sync timer based on state
+        if ((state.phase === 'DRAWING' || state.phase === 'VOTING') && state.timerDuration && state.timerStart) {
             const serverStartTime = state.timerStart;
             const totalDuration = state.timerDuration * 1000;
             const elapsed = Date.now() - serverStartTime;
             const remainingDurationSeconds = Math.max(0, (totalDuration - elapsed) / 1000);
-            if (remainingDurationSeconds > 0) { UIManager.startTimer(remainingDurationSeconds); }
-            else { UIManager.stopTimer(); }
-        } else {
+            console.log(`Syncing timer for ${state.phase}. Remaining: ${remainingDurationSeconds.toFixed(1)}s`);
+            if (remainingDurationSeconds > 0) {
+                UIManager.startTimer(remainingDurationSeconds);
+            } else {
+                UIManager.stopTimer();
+            }
+        } else if (state.phase !== 'DRAWING' && state.phase !== 'VOTING') {
             UIManager.stopTimer();
         }
 
-        // Enable/disable drawing
+        // Enable/disable drawing based on phase
         if (state.phase === 'DRAWING') {
+            // Only enable drawing if the player hasn't submitted yet
+            // We check the readyButton state which is disabled after submission
             if (readyButton && !readyButton.disabled) {
                 CanvasManager.enableDrawing();
-                if (wordHintElement) wordHintElement.textContent = `Your word: ${currentWord}`;
             } else {
-                CanvasManager.disableDrawing();
-                if (wordHintElement) wordHintElement.textContent = `Waiting for others...`;
+                CanvasManager.disableDrawing(); // Keep disabled if already submitted
             }
+            CanvasManager.clearCanvas(false); // Clear canvas at start of drawing phase
         } else {
             CanvasManager.disableDrawing();
-            // Clear word hint unless in rating/results
-            if (!['MANUAL_RATING', 'RESULTS', 'FINAL_SCOREBOARD'].includes(state.phase) && wordHintElement) {
-                 wordHintElement.textContent = '---';
-            } else if (wordHintElement && currentWord) {
-                 // Show word during rating/results
-                 wordHintElement.textContent = `Word was: ${currentWord}`;
-            }
         }
     });
 
-    // --- NEW: Handle individual AI rating updates ---
-    socket.on('ai rating update', ({ targetPlayerId, rating }) => {
-        console.log(`Received rating update for ${targetPlayerId}:`, rating);
-        RatingUI.updateRatingDisplay(targetPlayerId, rating); // Update specific rating box
+    socket.on('round start', ({ word, duration }) => {
+        console.log(`Round Start. Word: ${word}, Duration: ${duration}s`);
+        // State update handles canvas clear/enable and timer start
     });
-    // --- End NEW ---
 
+    socket.on('voting start', ({ duration }) => {
+        console.log(`Voting Start. Duration: ${duration}s`);
+        // State update handles canvas disable and timer start
+    });
+
+    socket.on('vote error', (message) => {
+        console.warn("Vote Error:", message);
+        ChatUI.addChatMessage({ text: `Vote Error: ${message}`, type: 'system' });
+        VotingUI.enableVotingButtons(); // Re-enable buttons on error
+    });
+
+    socket.on('vote accepted', () => {
+        console.log("Vote accepted.");
+        ChatUI.addChatMessage({ text: "Vote cast!", type: 'system' });
+        // Buttons remain disabled after successful vote
+    });
 
     // --- Client Actions ---
-    if (chatForm) { /* ... chat submit listener ... */
-         chatForm.addEventListener('submit', (e) => {
+    if (chatForm) {
+        chatForm.addEventListener('submit', (e) => {
             e.preventDefault();
             if (chatInput && chatInput.value.trim() && socket && socket.connected) {
-                socket.emit('chat message', chatInput.value); // Server handles context
+                socket.emit('chat message', chatInput.value); // Use 'chat message' for game context
                 chatInput.value = '';
             }
         });
-    }
-    if (readyButton) { /* ... ready button listener ... */
-         readyButton.addEventListener('click', () => {
-            console.log("Submit Drawing clicked");
+    } else { console.error("Chat form not found!"); }
+
+    if (readyButton) {
+        readyButton.addEventListener('click', () => {
+            console.log("Ready clicked");
             const drawingDataUrl = CanvasManager.getDrawingDataURL();
             if (drawingDataUrl) {
-                if (drawingDataUrl.length > 2 * 1024 * 1024) { ChatUI.addChatMessage({ text: "Error: Drawing too large!", type: 'system' }); return; }
+                // Basic size check (adjust limit as needed)
+                if (drawingDataUrl.length > 1000000) { // 1MB limit
+                    console.error("Drawing too large:", drawingDataUrl.length);
+                    ChatUI.addChatMessage({ text: "Error: Drawing is too large to submit!", type: 'system' });
+                    return;
+                }
                 socket.emit('player ready', drawingDataUrl);
-                CanvasManager.disableDrawing();
+                CanvasManager.disableDrawing(); // Disable drawing after submitting
                 readyButton.disabled = true;
-                readyButton.textContent = "Waiting for others...";
-                if (wordHintElement) wordHintElement.textContent = `Waiting for others...`;
+                readyButton.textContent = "Waiting...";
+                // Server will send confirmation via system message if needed
             } else {
+                console.error("Could not get drawing URL");
                 ChatUI.addChatMessage({ text: "Error submitting drawing!", type: 'system' });
             }
         });
-    }
+    } else { console.warn("Ready button not found."); }
 
-    // --- NEW: Listener for Rating Buttons ---
-    if (ratingGrid) {
-        ratingGrid.addEventListener('click', (e) => {
-            const button = e.target.closest('button.rate-btn');
-            if (button && !button.disabled && button.dataset.targetPlayerId) {
-                const targetPlayerId = button.dataset.targetPlayerId;
-                if (!isHost) {
-                    console.warn("Non-host clicked rate button.");
-                    return;
-                }
-                console.log(`Requesting rating for player ${targetPlayerId}`);
-                button.disabled = true; // Disable button immediately
-                button.textContent = 'Rating...';
-                RatingUI.showRatingInProgress(targetPlayerId, true); // Show overlay
-                socket.emit('rate drawing request', { targetPlayerId });
+    if (votingArea) {
+        votingArea.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON' && e.target.classList.contains('vote-button') && e.target.dataset.voteFor) {
+                const votedForId = e.target.dataset.voteFor;
+                console.log(`Voting for ${votedForId}`);
+                VotingUI.disableVotingButtons(); // Disable all buttons immediately
+                socket.emit('submit vote', votedForId);
             }
         });
-    }
-    // --- End NEW ---
-
-
+    } else { console.warn("Voting area not found."); }
 } // End of initializeGame
 
-function handleFatalError(message) { /* ... remains the same ... */
+function handleFatalError(message) {
     console.error("Fatal Error:", message);
     alert(`Error: ${message}. Redirecting to start page.`);
-    window.location.href = '/game/';
+    window.location.href = '/game/'; // Redirect to game base path
 }
 
 // --- Initialize ---
-if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initializeGame); }
-else { initializeGame(); }
+// Ensure DOM is fully loaded before initializing
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeGame);
+} else {
+    initializeGame();
+}

@@ -54,21 +54,19 @@ body {
 
 /* Player list area (bordered box) */
 #player-list-area {
-    width: 260px;
+    width: 260px; /* Set width directly */
     border: 1px solid #ccc;
     padding: 10px;
     background-color: #fff;
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    overflow: hidden; /* Changed from auto to hidden initially */
+    overflow: hidden;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    flex-shrink: 0;
-    position: relative;
-    padding-top: 35px;
-    /* Allow vertical scrolling if settings make it too tall */
-    overflow-y: auto;
+    flex-shrink: 0; /* Prevent shrinking */
+    position: relative; /* Needed for absolute positioning of title */
+    padding-top: 35px; /* Increased space for the title inside */
 }
 
 /* Style for Lobby Title (Positioned inside the top padding) */
@@ -207,6 +205,7 @@ body {
 /* --- Styles for Lobby Screen (lobby.html - served at /game/lobby) --- */
 #lobby-canvas-area {
     flex-grow: 1; display: flex; flex-direction: column; align-items: stretch;
+    /* padding: 15px; */ /* REMOVED PADDING */
     background-color: #f8f9fa; border-radius: 4px;
     border: 1px solid #dee2e6; margin: 0;
     min-width: 0;
@@ -215,12 +214,16 @@ body {
 #lobby-canvas {
     border: 1px solid #ccc; /* Keep border if desired */
     background-color: #fff;
+    /* margin-bottom: 10px; */ /* Remove margin, let flexbox handle spacing */
     touch-action: none;
     max-width: 100%;
     display: block;
     box-sizing: border-box; /* Include border in size */
+    /* Let flexbox handle sizing within the padding-less parent */
     width: 100%; /* Take full width of parent */
+    /* height: auto; Maintain aspect ratio */
     aspect-ratio: 600 / 450; /* width / height */
+    /* Remove max-height or adjust as needed */
     margin: 0; /* Explicitly remove margin */
     padding: 0; /* Explicitly remove padding */
 }
@@ -241,63 +244,6 @@ body {
 .tool-button.active { background-color: #007bff; color: white; border-color: #0056b3; }
 #lobby-drawing-tools input[type="color"] { height: 40px; width: 45px; padding: 2px; border: 1px solid #adb5bd; border-radius: 4px; cursor: pointer; vertical-align: middle; background-color: #fff; }
 #lobby-drawing-tools select { padding: 7px 10px; font-size: 0.9em; border: 1px solid #adb5bd; border-radius: 4px; height: 40px; vertical-align: middle; background-color: #fff; }
-
-/* --- NEW: AI Feature Area Styles --- */
-#ai-feature-area {
-    display: flex;
-    align-items: center; /* Vertically align button and text box */
-    gap: 10px; /* Space between button and text box */
-    padding: 10px; /* Padding around the AI elements */
-    margin-top: 5px; /* Space below drawing tools */
-    /* Ensure it aligns horizontally with the drawing tools */
-    /* The parent #lobby-canvas-area handles overall width */
-}
-
-#ask-ai-btn {
-    padding: 8px 15px;
-    font-size: 0.9em;
-    background-color: #6c757d; /* Secondary button color */
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    flex-shrink: 0; /* Prevent button from shrinking */
-    /* Make button height align better with textarea */
-    height: calc(1.5em * 2 + 16px + 2px); /* Approx height for 2 rows + padding + border */
-    align-self: flex-start; /* Align button to the top of the flex container */
-}
-#ask-ai-btn:hover {
-    background-color: #5a6268;
-}
-#ask-ai-btn:disabled {
-    background-color: #adb5bd;
-    cursor: not-allowed;
-}
-
-/* Updated styles for textarea */
-#ai-interpretation-box {
-    flex-grow: 1; /* Take remaining horizontal space */
-    padding: 8px 10px; /* Adjusted padding */
-    font-size: 0.9em;
-    font-family: inherit; /* Inherit font from body */
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    background-color: #e9ecef; /* Read-only background */
-    color: #495057;
-    min-width: 0; /* Allow shrinking */
-    box-sizing: border-box;
-    /* Remove fixed height, let rows attribute control it */
-    /* height: 36px; */
-    line-height: 1.5; /* Standard line height */
-    resize: none; /* Disable manual resizing by user */
-    overflow-y: auto; /* Add scrollbar if content exceeds 2 lines */
-}
-#ai-interpretation-box::placeholder {
-    color: #6c757d;
-    font-style: italic;
-}
-/* --- End AI Feature Area Styles --- */
 
 
 /* Start Game Button Container */
@@ -341,308 +287,6 @@ body {
 #lobby-list button.join-lobby-btn { font-size: 0.9em; padding: 5px 10px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 3px; margin-left: auto; }
 #lobby-list button.join-lobby-btn:hover { background-color: #218838; }
 #lobby-list button.join-lobby-btn:disabled { background-color: #6c757d; cursor: not-allowed; }
-
-
-
-/* --- End PvP Results Update --- */
-
-
-/* Results Area Specific Styles */
-#results-area {
-    /* Existing styles */
-    max-height: 400px; /* Limit height and allow scrolling */
-    overflow-y: auto;
-}
-#results-content {
-    /* Container for actual results to allow clearing */
-}
-
-/* --- NEW: Artist PvP Results Styles --- */
-.pvp-results-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 15px;
-    padding: 10px;
-}
-.pvp-results-container.final-scoreboard {
-    /* Optional different styling for final view */
-}
-
-.pvp-result-item {
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    padding: 10px;
-    background-color: #fff;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    position: relative; /* Needed for winner indicator */
-}
-.pvp-result-item.my-result { border-color: #007bff; background-color: #f0f8ff; }
-.pvp-result-item.winner {
-    border-color: gold;
-    border-width: 2px;
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-}
-
-
-.pvp-player-info {
-    font-weight: bold;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 5px;
-    margin-bottom: 5px;
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 5px; /* Add gap */
-}
-.pvp-player-info .player-rank { /* NEW */
-    font-size: 0.9em;
-    color: #888;
-    min-width: 25px; /* Ensure space for rank */
-}
-.pvp-player-info .player-name { color: #333; flex-grow: 1; text-align: center; } /* Center name */
-.pvp-player-info .player-total-score { font-size: 1.1em; font-weight: bold; color: #0056b3; }
-
-.winner-indicator {
-    position: absolute;
-    top: -5px;
-    left: -5px;
-    font-size: 1.5em;
-    transform: rotate(-15deg);
-}
-
-.pvp-drawing-thumbnail {
-    width: 100%;
-    /* height: 150px; */ /* Let aspect ratio control height */
-    aspect-ratio: 4 / 3; /* Maintain aspect ratio */
-    object-fit: contain; /* Fit drawing within bounds */
-    border: 1px solid #eee;
-    background-color: #fff; /* White background for transparency */
-    margin-bottom: 5px;
-}
-.pvp-no-drawing {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    border: 1px dashed #ccc;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #999;
-    font-style: italic;
-    font-size: 0.9em;
-    background-color: #f8f8f8;
-     margin-bottom: 5px;
-}
-
-
-.pvp-evaluation-info {
-    font-size: 0.9em;
-    background-color: #f9f9f9;
-    padding: 8px;
-    border-radius: 3px;
-    border-left: 3px solid #6c757d; /* Default border */
-}
-.pvp-evaluation-info p {
-    margin: 3px 0;
-}
-.pvp-word strong {
-    color: #0056b3;
-}
-.pvp-ai-score {
-    font-weight: bold;
-    /* Display score clearly */
-    font-size: 1.1em;
-    color: #0056b3; /* Blue for score */
-}
-.pvp-ai-explanation {
-    color: #555;
-    font-style: italic;
-    line-height: 1.3;
-}
-.pvp-ai-score.error {
-    color: #dc3545;
-}
-.pvp-ai-explanation.error {
-    color: #dc3545; /* Red for errors */
-    font-style: normal;
-}
-.pvp-evaluation-info.error { border-left-color: #dc3545; } /* Add class to container */
-
-/* --- End PvP Results Styles --- */
-
-
-
-
-/* --- NEW: Game Settings Area Styles --- */
-#game-settings-area {
-    border-top: 1px solid #eee;
-    margin-top: 15px;
-    padding-top: 10px;
-}
-#game-settings-area h4 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    text-align: center;
-    font-size: 1.1em;
-    color: #555;
-}
-.setting-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-    font-size: 0.9em;
-}
-.setting-item label {
-    margin-right: 10px;
-    color: #333;
-}
-.setting-item select {
-    padding: 4px 6px;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    flex-grow: 1; /* Allow select to take space */
-    min-width: 80px; /* Ensure minimum width */
-}
-#save-settings-btn {
-    display: block;
-    width: 100%;
-    margin-top: 10px;
-    padding: 6px 12px;
-    font-size: 0.9em;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-}
-#save-settings-btn:hover {
-    background-color: #0056b3;
-}
-/* --- End Game Settings Styles --- */
-
-
-/* --- NEW: Manual Rating Area Styles --- */
-#manual-rating-area {
-    /* Basic container styles set in HTML */
-    max-height: 500px; /* Limit height */
-}
-#manual-rating-area h3 {
-    text-align: center;
-    margin-top: 0;
-    margin-bottom: 15px;
-    color: #495057;
-}
-
-#rating-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* Responsive grid */
-    gap: 15px;
-}
-
-.rating-item {
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 10px;
-    background-color: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: center; /* Center items */
-    gap: 8px;
-    position: relative; /* For overlay */
-}
-.rating-item .player-name {
-    font-weight: bold;
-    font-size: 0.9em;
-    color: #333;
-    text-align: center;
-    width: 100%;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 5px;
-    margin-bottom: 5px;
-}
-
-.rating-item img {
-    width: 100%;
-    /* height: 150px; */
-    aspect-ratio: 4 / 3;
-    object-fit: contain;
-    border: 1px solid #eee;
-    background-color: #fff;
-}
-.rating-item .no-drawing {
-     width: 100%;
-     aspect-ratio: 4 / 3;
-     border: 1px dashed #ccc;
-     display: flex;
-     align-items: center;
-     justify-content: center;
-     color: #999; font-style: italic; font-size: 0.9em;
-     background-color: #f8f8f8;
-}
-
-
-.rating-item button.rate-btn {
-    padding: 5px 10px;
-    font-size: 0.85em;
-    background-color: #17a2b8;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    width: 80%; /* Make button wider */
-    margin-top: 5px;
-}
-.rating-item button.rate-btn:hover:not(:disabled) {
-    background-color: #138496;
-}
-.rating-item button.rate-btn:disabled {
-    background-color: #6c757d;
-    cursor: not-allowed;
-}
-
-.rating-item textarea.rating-result-box {
-    width: 100%;
-    font-size: 0.8em;
-    font-family: inherit;
-    border: 1px solid #ced4da;
-    border-radius: 3px;
-    background-color: #f1f3f5;
-    color: #495057;
-    resize: none;
-    box-sizing: border-box;
-    padding: 5px;
-    line-height: 1.3;
-    min-height: 40px; /* Ensure minimum height */
-    margin-top: 5px;
-}
-.rating-item textarea.rating-result-box.error {
-    border-color: #dc3545;
-    color: #dc3545;
-}
-
-/* Overlay for "Rating in Progress" */
-.rating-in-progress-overlay {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: rgba(255, 255, 255, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-style: italic;
-    color: #555;
-    font-size: 0.9em;
-    border-radius: 4px; /* Match parent */
-    pointer-events: none; /* Allow clicks through if needed, though button is disabled */
-}
-
-/* --- End Manual Rating Styles --- */
-
-
-
-
 
 /* Responsive adjustments */
 @media (max-width: 900px) {
@@ -691,10 +335,6 @@ body {
          max-width: none;
          height: 200px;
     }
-    #ai-feature-area {
-        padding: 8px; /* Adjust padding */
-        align-items: flex-start; /* Align items top */
-    }
 }
 
 @media (max-width: 600px) {
@@ -722,18 +362,5 @@ body {
     .voting-option img {
         width: 150px;
         height: auto;
-    }
-    #ai-feature-area {
-        flex-direction: column; /* Stack button and text box */
-        align-items: stretch; /* Make them full width */
-        gap: 5px;
-    }
-    #ask-ai-btn {
-        width: 100%; /* Full width button */
-        height: auto; /* Reset height */
-        padding: 10px 15px; /* Adjust padding */
-    }
-    #ai-interpretation-box {
-        width: 100%; /* Full width text box */
     }
 }
