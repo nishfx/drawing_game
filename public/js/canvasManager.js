@@ -1,3 +1,4 @@
+// public/js/canvasManager.js
 import { floodFill, getPixelColor } from './drawing/fillUtil.js';
 
 let canvas = null;
@@ -20,7 +21,7 @@ let currentLineWidth = 5;
 const CANVAS_BACKGROUND_COLOR = "#FFFFFF"; // Define background color constant
 
 // --- History ---
-let myDrawHistory = []; // Commands initiated by this client { cmdId, type, ... }
+let myDrawHistory = []; // Commands initiated by this client { cmdId, type, ... } - Excludes 'clear'
 let fullDrawHistory = []; // All commands executed { cmdId, playerId, type, ... }
 const MAX_HISTORY = 200; // Limit history size
 
@@ -43,7 +44,8 @@ export function initCanvas(canvasId, drawEventEmitter) {
     overlayCanvas.style.top = canvas.offsetTop + 'px';
     overlayCanvas.style.left = canvas.offsetLeft + 'px';
     overlayCanvas.style.pointerEvents = 'none'; // Ignore mouse events
-    canvas.parentNode.appendChild(overlayCanvas);
+    // Insert overlay *before* the main canvas in the DOM if possible, or adjust z-index
+    canvas.parentNode.insertBefore(overlayCanvas, canvas);
     overlayCtx = overlayCanvas.getContext('2d');
 
     emitDrawCallback = drawEventEmitter; // Store the callback
@@ -106,10 +108,14 @@ export function clearCanvas(emitEvent = true) {
     clearOverlay();
     console.log("Canvas cleared locally");
 
-    if (emitEvent && emitDrawCallback) {
+    if (emitEvent && emitDrawCallback && myPlayerId) {
         const cmdId = generateCommandId();
         const command = { cmdId, type: 'clear' };
-        addCommandToHistory(command, myPlayerId); // Add own clear to history
+        // Clear command resets history on server and other clients
+        // We also clear local history when executing the clear command
+        clearHistory();
+        // Add the clear command itself to the full history locally for consistency during redraws
+        addCommandToHistory(command, myPlayerId);
         emitDrawCallback(command); // Emit the clear command
         console.log("Dispatched clear event");
     } else if (!emitEvent) {
@@ -156,7 +162,8 @@ export function setLineWidth(width) {
 // --- History and Redrawing ---
 
 function generateCommandId() {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    // Use a more robust ID generator (e.g., combining timestamp and random string)
+    return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
 function addCommandToHistory(command, playerId) {
@@ -165,8 +172,10 @@ function addCommandToHistory(command, playerId) {
     if (fullDrawHistory.length > MAX_HISTORY) {
         fullDrawHistory.shift(); // Limit history size
     }
-    if (playerId === myPlayerId) {
-        myDrawHistory.push(command); // Only store own command without playerId here
+    // Only add to own history if it's our command AND not a 'clear' command
+    // (Clear resets history, shouldn't be individually undone this way)
+    if (playerId === myPlayerId && command.type !== 'clear') {
+        myDrawHistory.push(command);
          if (myDrawHistory.length > MAX_HISTORY) {
             myDrawHistory.shift();
         }
@@ -182,11 +191,11 @@ export function loadAndDrawHistory(commands) {
     console.log(`Loading ${commands.length} commands from history.`);
     clearCanvas(false); // Clear canvas locally without emitting
     clearHistory();
-    fullDrawHistory = commands.map(cmd => ({ ...cmd })); // Deep copy? Assume simple objects for now
+    fullDrawHistory = commands.map(cmd => ({ ...cmd })); // Store full history
 
-    // Rebuild own history
+    // Rebuild own history from the full history, excluding 'clear'
     myDrawHistory = fullDrawHistory
-        .filter(cmd => cmd.playerId === myPlayerId)
+        .filter(cmd => cmd.playerId === myPlayerId && cmd.type !== 'clear')
         .map(({ playerId, ...rest }) => rest); // Store without playerId
 
     redrawCanvasFromHistory();
@@ -195,6 +204,7 @@ export function loadAndDrawHistory(commands) {
 export function removeCommandById(cmdId) {
     const initialLength = fullDrawHistory.length;
     fullDrawHistory = fullDrawHistory.filter(cmd => cmd.cmdId !== cmdId);
+    // Also remove from local history if present (it might have been added optimistically)
     myDrawHistory = myDrawHistory.filter(cmd => cmd.cmdId !== cmdId);
 
     if (fullDrawHistory.length < initialLength) {
@@ -262,7 +272,12 @@ function executeCommand(cmd, ctx) {
             break;
         case 'rect':
             ctx.globalCompositeOperation = 'source-over';
-            ctx.strokeRect(cmd.x0, cmd.y0, cmd.x1 - cmd.x0, cmd.y1 - cmd.y0);
+            // Ensure width/height are positive for strokeRect
+            const x = Math.min(cmd.x0, cmd.x1);
+            const y = Math.min(cmd.y0, cmd.y1);
+            const width = Math.abs(cmd.x1 - cmd.x0);
+            const height = Math.abs(cmd.y1 - cmd.y0);
+            ctx.strokeRect(x, y, width, height);
             break;
         case 'fill':
             ctx.globalCompositeOperation = 'source-over';
@@ -271,6 +286,9 @@ function executeCommand(cmd, ctx) {
             break;
         case 'clear':
             // Clear is handled by the initial clear in redrawCanvasFromHistory
+            // Or when receiving an external 'clear' command
+            ctx.fillStyle = CANVAS_BACKGROUND_COLOR;
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             break;
         default:
             console.warn("Unknown command type during redraw:", cmd.type);
@@ -285,6 +303,16 @@ export function drawExternalCommand(data) {
         return;
     }
     console.log(`Received external command: ${data.type} (${data.cmdId}) from ${data.playerId}`);
+
+    // Handle external clear command - it resets history
+    if (data.type === 'clear') {
+        console.log("Received external clear command. Clearing history and canvas.");
+        clearCanvas(false); // Clear locally
+        clearHistory();     // Clear history
+        // Add the clear command itself to the history (optional, but consistent)
+        addCommandToHistory(data, data.playerId);
+        return; // Don't execute further for clear
+    }
 
     // Add to full history
     addCommandToHistory(data, data.playerId);
@@ -307,36 +335,40 @@ export function drawExternalCommand(data) {
 
     } catch (error) {
         console.error("Error drawing external command:", error, data);
-        // If drawing fails, might need to request a full redraw from server?
-        // For now, just log the error.
     }
 }
 
 // --- Undo ---
 export function undoLastAction(socket) {
     if (!myPlayerId) { console.warn("Cannot undo: Player ID not set."); return; }
-    if (myDrawHistory.length === 0) { console.log("Nothing to undo."); return; }
+    if (myDrawHistory.length === 0) {
+        console.log("Nothing in local history to undo.");
+        // Optionally provide user feedback (e.g., button disabled state or message)
+        return;
+    }
 
-    const commandToUndo = myDrawHistory[myDrawHistory.length - 1]; // Get last command added by this player
+    // Get the last command added by this player from THEIR history
+    const commandToUndo = myDrawHistory.pop(); // Remove from local history optimistically
 
     if (!commandToUndo || !commandToUndo.cmdId) {
         console.error("Invalid command found in local history for undo:", commandToUndo);
-        // Attempt to remove it locally anyway?
-        myDrawHistory.pop();
+        // Attempt to redraw without the potentially bad local command
         redrawCanvasFromHistory();
         return;
     }
 
-    console.log(`Attempting to undo command: ${commandToUndo.cmdId}`);
+    console.log(`Requesting undo for command: ${commandToUndo.cmdId}`);
 
-    // Emit undo request to server
+    // Emit undo request to server WITH the specific command ID
     if (socket && socket.connected) {
-        socket.emit('undo last draw'); // Server will find the last command by this player
-        // We expect the server to broadcast 'lobby command removed' which triggers redraw
+        socket.emit('undo last draw', { cmdId: commandToUndo.cmdId });
+        // Don't redraw locally yet. Wait for 'lobby command removed' confirmation
+        // which triggers redraw for everyone, ensuring sync.
     } else {
         console.error("Cannot emit undo: Socket not available or connected.");
-        // If no socket, just undo locally (will be out of sync)
-        removeCommandById(commandToUndo.cmdId); // Remove locally and redraw
+        // If no socket, put the command back into local history and redraw
+        myDrawHistory.push(commandToUndo); // Put it back
+        redrawCanvasFromHistory(); // Redraw current state
     }
 }
 
@@ -408,16 +440,14 @@ function handleMouseDown(e) {
 
     if (currentTool === 'eraser') {
         context.globalCompositeOperation = 'destination-out';
-        // Start drawing eraser line immediately
         context.beginPath();
         context.moveTo(startX, startY);
     } else if (currentTool === 'fill') {
-        // Don't draw on mouse down, wait for mouse up (click)
         isDrawing = false; // Prevent mouseMove drawing for fill
     } else if (currentTool === 'rectangle') {
-        // Prepare overlay for preview
         overlayCtx.strokeStyle = currentStrokeStyle;
         overlayCtx.lineWidth = currentLineWidth;
+        overlayCtx.fillStyle = currentStrokeStyle; // Might want fill preview later
     } else { // Pencil
         context.globalCompositeOperation = 'source-over';
         context.beginPath();
@@ -432,14 +462,20 @@ function handleMouseMove(e) {
     switch (currentTool) {
         case 'pencil':
         case 'eraser':
+            // Draw segment locally first for responsiveness
             drawLocalSegment(lastX, lastY, x, y);
+            // Then emit the command for the server/others
             emitDrawSegment(lastX, lastY, x, y);
             break;
         case 'rectangle':
             clearOverlay();
-            overlayCtx.strokeRect(startX, startY, x - startX, y - startY);
+            // Draw preview on overlay
+            const rectX = Math.min(startX, x);
+            const rectY = Math.min(startY, y);
+            const rectW = Math.abs(x - startX);
+            const rectH = Math.abs(y - startY);
+            overlayCtx.strokeRect(rectX, rectY, rectW, rectH);
             break;
-        // No action needed for 'fill' on move
     }
 
     lastX = x;
@@ -451,18 +487,16 @@ function handleMouseUp(e) {
     const { x, y } = getEventCoords(e);
 
     if (currentTool === 'fill') {
-        // Execute fill on mouse up (click)
+        if (isDrawing) return; // Don't fill if mouse was dragged
         console.log(`Fill tool clicked at (${Math.round(x)}, ${Math.round(y)}) with color ${currentStrokeStyle}`);
         const cmdId = generateCommandId();
         const command = {
             cmdId,
             type: 'fill',
-            x: x,
-            y: y,
+            x: x, y: y,
             color: currentStrokeStyle,
-            // No size needed for fill
         };
-        // Execute locally first
+        // Execute locally first for immediate feedback
         executeCommand(command, context);
         // Add to history
         addCommandToHistory(command, myPlayerId);
@@ -470,14 +504,19 @@ function handleMouseUp(e) {
         if (emitDrawCallback) emitDrawCallback(command);
 
     } else if (currentTool === 'rectangle') {
+        if (!isDrawing) return; // Only finalize if mouse was down
         clearOverlay();
-        // Draw final rectangle on main canvas
         const cmdId = generateCommandId();
+        // Ensure coordinates are consistent (e.g., x0,y0 is top-left) - not strictly necessary for server/redraw
+        const finalX0 = Math.min(startX, x);
+        const finalY0 = Math.min(startY, y);
+        const finalX1 = Math.max(startX, x);
+        const finalY1 = Math.max(startY, y);
         const command = {
             cmdId,
             type: 'rect',
-            x0: startX, y0: startY,
-            x1: x, y1: y, // Store end coordinates
+            x0: finalX0, y0: finalY0,
+            x1: finalX1, y1: finalY1, // Store final coords
             color: currentStrokeStyle,
             size: currentLineWidth,
         };
@@ -489,7 +528,10 @@ function handleMouseUp(e) {
         if (emitDrawCallback) emitDrawCallback(command);
 
     } else if (currentTool === 'pencil' || currentTool === 'eraser') {
-        // End the path for pencil/eraser
+        if (!isDrawing) return; // Only finalize if mouse was down
+        // Optional: Draw the final point if needed (usually covered by mousemove)
+        // drawLocalSegment(lastX, lastY, x, y);
+        // emitDrawSegment(lastX, lastY, x, y);
         context.closePath();
     }
 

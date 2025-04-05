@@ -194,30 +194,44 @@ class Lobby {
         if (commandWithPlayer.type === 'clear') {
             console.log(`Lobby ${this.id}: Clearing canvas commands by ${socket.id}.`);
             this.lobbyCanvasCommands = [];
-            this.io.to(this.id).emit('lobby draw update', commandWithPlayer);
+            // Add the clear command itself to history so redraws work correctly
+            this.lobbyCanvasCommands.push(commandWithPlayer);
+            this.io.to(this.id).emit('lobby draw update', commandWithPlayer); // Broadcast clear
         } else {
             this.lobbyCanvasCommands.push(commandWithPlayer);
             if (this.lobbyCanvasCommands.length > this.maxLobbyCommands) { this.lobbyCanvasCommands.shift(); }
+            // Broadcast command to others in the lobby
             socket.to(this.id).emit('lobby draw update', commandWithPlayer);
         }
     }
 
-    handleUndoLastDraw(socket) {
+    handleUndoLastDraw(socket, data) { // Expect data = { cmdId: "..." }
         if (!this.players.has(socket.id)) return;
         const playerId = socket.id;
-        let lastCommandIndex = -1;
-        for (let i = this.lobbyCanvasCommands.length - 1; i >= 0; i--) {
-            if (this.lobbyCanvasCommands[i].playerId === playerId) {
-                lastCommandIndex = i;
-                break;
-            }
+        const cmdIdToUndo = data?.cmdId;
+
+        if (!cmdIdToUndo) {
+            console.warn(`Lobby ${this.id}: Received undo request from ${playerId} without cmdId.`);
+            return;
         }
-        if (lastCommandIndex !== -1) {
-            const removedCommand = this.lobbyCanvasCommands.splice(lastCommandIndex, 1)[0];
-            console.log(`Lobby ${this.id}: Undoing command ${removedCommand.cmdId} by ${playerId}`);
-            this.io.to(this.id).emit('lobby command removed', { cmdId: removedCommand.cmdId });
+
+        // Find the command by ID in the main history
+        const commandIndex = this.lobbyCanvasCommands.findIndex(cmd => cmd.cmdId === cmdIdToUndo);
+
+        if (commandIndex !== -1) {
+            // Verify the player requesting the undo actually owns the command
+            if (this.lobbyCanvasCommands[commandIndex].playerId === playerId) {
+                const removedCommand = this.lobbyCanvasCommands.splice(commandIndex, 1)[0];
+                console.log(`Lobby ${this.id}: Undoing command ${removedCommand.cmdId} by ${playerId}`);
+                // Broadcast that *this specific command* was removed
+                this.io.to(this.id).emit('lobby command removed', { cmdId: removedCommand.cmdId });
+            } else {
+                console.warn(`Lobby ${this.id}: Player ${playerId} attempted to undo command ${cmdIdToUndo} owned by ${this.lobbyCanvasCommands[commandIndex].playerId}.`);
+                // Optionally notify the player: socket.emit('system message', 'Cannot undo action by another player.');
+            }
         } else {
-            console.log(`Lobby ${this.id}: No command found for player ${playerId} to undo.`);
+            console.log(`Lobby ${this.id}: Command ${cmdIdToUndo} requested for undo by ${playerId} not found in history (already undone or cleared?).`);
+            // Optionally notify the player: socket.emit('system message', 'Nothing to undo.');
         }
     }
 
