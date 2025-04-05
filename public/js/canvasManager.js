@@ -30,8 +30,6 @@ const MAX_HISTORY = 500;
 
 let emitDrawCallback = null;
 
-// -------------------------------------
-
 export function initCanvas(canvasId, drawEventEmitter) {
     canvas = document.getElementById(canvasId);
     if (!canvas) {
@@ -71,7 +69,6 @@ export function initCanvas(canvasId, drawEventEmitter) {
     overlayCtx.lineJoin = 'round';
     overlayCtx.lineCap = 'round';
 
-    // Event listeners
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -114,10 +111,6 @@ export function disableDrawing() {
     console.log("Drawing disabled");
 }
 
-/**
- * Removes only *my* lines from the local history, then emits “clear” so
- * the server knows to remove my lines from everyone’s display.
- */
 export function clearCanvas(emitEvent = true) {
     if (!context || !canvas) return;
 
@@ -129,13 +122,11 @@ export function clearCanvas(emitEvent = true) {
         }
     });
     if (myCmdIds.length > 0) {
-        removeCommands(myCmdIds, null, myPlayerId); // <-- CHANGED (adding myPlayerId)
+        removeCommands(myCmdIds, null, myPlayerId);
     }
-
     console.log("Locally removed all my lines (clear). Redrawing...");
     redrawCanvasFromHistory();
 
-    // Let server know
     if (emitEvent && emitDrawCallback && myPlayerId) {
         const cmdId = generateCommandId();
         const command = { cmdId, type: 'clear' };
@@ -143,9 +134,6 @@ export function clearCanvas(emitEvent = true) {
     }
 }
 
-/**
- * Return PNG data URL of entire canvas
- */
 export function getDrawingDataURL() {
     if (!canvas) return null;
     try {
@@ -156,8 +144,7 @@ export function getDrawingDataURL() {
     }
 }
 
-// ------------------ TOOL SETTINGS -------------------
-
+// -------------- TOOL SETTINGS ----------------
 export function setTool(toolName) {
     currentTool = toolName;
     console.log("Tool set to:", currentTool);
@@ -192,7 +179,7 @@ export function setLineWidth(width) {
     }
 }
 
-// -------------- HISTORY & REDRAW --------------------
+// -------------- HISTORY & REDRAW -------------
 function generateCommandId() {
     return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 11)}`;
 }
@@ -233,26 +220,17 @@ export function loadAndDrawHistory(commands) {
     redrawCanvasFromHistory();
 }
 
-/**
- * ***CHANGED***: Now we accept an optional `ownerPlayerId`.
- * We remove only those commands that match the given cmdId/strokeId **AND** match the `ownerPlayerId`.
- */
-export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerPlayerId = null) { // <-- CHANGED
+export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerPlayerId = null) {
     let removedCount = 0;
 
     if (strokeIdToRemove) {
         fullDrawHistory = fullDrawHistory.filter(cmd => {
-            // Remove only if the strokeId matches, AND if playerId matches (when provided)
-            if (
-                cmd.strokeId === strokeIdToRemove &&
-                (!ownerPlayerId || cmd.playerId === ownerPlayerId)
-            ) {
+            if (cmd.strokeId === strokeIdToRemove && (!ownerPlayerId || cmd.playerId === ownerPlayerId)) {
                 removedCount++;
                 return false;
             }
             return true;
         });
-        // Also remove from myDrawHistory if it's my stroke
         myDrawHistory = myDrawHistory.filter(cmd => {
             if (cmd.strokeId === strokeIdToRemove && cmd.playerId === ownerPlayerId) {
                 return false;
@@ -263,10 +241,7 @@ export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerP
     } else if (idsToRemove.length > 0) {
         const idSet = new Set(idsToRemove);
         fullDrawHistory = fullDrawHistory.filter(cmd => {
-            if (
-                idSet.has(cmd.cmdId) &&
-                (!ownerPlayerId || cmd.playerId === ownerPlayerId)
-            ) {
+            if (idSet.has(cmd.cmdId) && (!ownerPlayerId || cmd.playerId === ownerPlayerId)) {
                 removedCount++;
                 return false;
             }
@@ -321,10 +296,6 @@ function redrawCanvasFromHistory() {
     if (isMouseOverCanvas) updateCursorPreview(currentMouseX, currentMouseY);
 }
 
-/**
- * Executes a single command on the given context.
- * Called from redrawCanvasFromHistory & in drawExternalCommand fallback.
- */
 function executeCommand(cmd, ctx) {
     if (!cmd || !cmd.type) return;
 
@@ -334,8 +305,6 @@ function executeCommand(cmd, ctx) {
 
     switch (cmd.type) {
         case 'line':
-            // For local "line" commands, we typically do context.beginPath in handleMouseDown.
-            // But for replays, let's be sure to do it here:
             ctx.globalCompositeOperation = cmd.tool === 'eraser' ? 'destination-out' : 'source-over';
             ctx.beginPath();
             ctx.moveTo(cmd.x0, cmd.y0);
@@ -344,7 +313,6 @@ function executeCommand(cmd, ctx) {
             ctx.closePath();
             ctx.globalCompositeOperation = 'source-over';
             break;
-
         case 'rect': {
             ctx.globalCompositeOperation = 'source-over';
             const x = Math.min(cmd.x0, cmd.x1);
@@ -369,18 +337,22 @@ function executeCommand(cmd, ctx) {
             ctx.globalCompositeOperation = 'source-over';
             floodFill(ctx, Math.round(cmd.x), Math.round(cmd.y), cmd.color);
             break;
+        // [CHANGED for TEXT TOOL]
+        case 'text':
+            ctx.globalCompositeOperation = 'source-over';
+            const fontSize = (cmd.size || 5) * 4; // basic scaling
+            ctx.font = `${fontSize}px sans-serif`;
+            ctx.textBaseline = 'top';
+            ctx.fillText(cmd.text, cmd.x, cmd.y);
+            break;
         case 'clear':
-            // We do nothing here, the actual commands are removed from history
+            // We do nothing here; the actual commands are removed from history
             break;
         default:
             console.warn("Unknown command type during redraw:", cmd.type);
     }
 }
 
-/**
- * ***CHANGED***: We do a fresh path each time we draw an external line,
- * so that local and remote strokes don’t get merged if multiple players draw at once.
- */
 export function drawExternalCommand(data) {
     if (!context || !data || !data.cmdId || !data.playerId) {
         console.warn("Invalid external command:", data);
@@ -388,15 +360,12 @@ export function drawExternalCommand(data) {
     }
 
     if (data.type === 'clear') {
-        // Another player's "clear" => server will soon send 'lobby commands removed'
+        // Another player's "clear" => server will remove them from the history
         return;
     }
-
-    // FIRST, add it to local history
     addCommandToHistory(data, data.playerId);
 
     try {
-        // *** We do a short save/restore + fresh path so it won’t connect to local strokes ***
         context.save();
         if (data.type === 'line') {
             context.beginPath();
@@ -405,10 +374,8 @@ export function drawExternalCommand(data) {
             context.lineTo(data.x1, data.y1);
             context.stroke();
             context.closePath();
-            // reset
             context.globalCompositeOperation = 'source-over';
         } else {
-            // For shapes/fill, we rely on executeCommand
             executeCommand(data, context);
         }
         context.restore();
@@ -417,9 +384,6 @@ export function drawExternalCommand(data) {
     }
 }
 
-/**
- * Undo your last stroke. Only affects your lines.
- */
 export function undoLastAction(socket) {
     if (!myPlayerId) {
         console.warn("Cannot undo: Player ID not set.");
@@ -429,7 +393,6 @@ export function undoLastAction(socket) {
         console.log("Nothing in local history to undo.");
         return;
     }
-
     const lastMyCommand = myDrawHistory[myDrawHistory.length - 1];
     if (!lastMyCommand || !lastMyCommand.cmdId) {
         console.error("Invalid command for undo:", lastMyCommand);
@@ -443,14 +406,12 @@ export function undoLastAction(socket) {
 
     console.log(`Requesting undo for stroke=${strokeIdToUndo} or cmd=${cmdIdToUndo}`);
 
-    // Remove locally
     if (strokeIdToUndo) {
         myDrawHistory = myDrawHistory.filter(cmd => cmd.strokeId !== strokeIdToUndo);
     } else {
         myDrawHistory.pop();
     }
 
-    // Also tell server
     if (socket && socket.connected) {
         const undoData = strokeIdToUndo ? { strokeId: strokeIdToUndo } : { cmdId: cmdIdToUndo };
         socket.emit('undo last draw', undoData);
@@ -460,9 +421,7 @@ export function undoLastAction(socket) {
     }
 }
 
-// ---------------------------------------------------
-// Internal drawing logic / event helpers
-// ---------------------------------------------------
+// -------- Drawing logic / events ---------
 function getEventCoords(e) {
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
@@ -491,10 +450,13 @@ function setCursorForTool(tool) {
     let cursorStyle = 'crosshair';
     switch (tool) {
         case 'eraser':
-            cursorStyle = `url('data:image/svg+xml;utf8,<svg...') 10 10, auto`;
+            cursorStyle = 'crosshair'; // or an eraser icon
             break;
         case 'fill':
             cursorStyle = 'copy';
+            break;
+        case 'text': // [CHANGED for TEXT]
+            cursorStyle = 'text';
             break;
         default:
             cursorStyle = 'crosshair';
@@ -506,8 +468,16 @@ function setCursorForTool(tool) {
 function setCursorStyle() {
     if (!canvas) return;
     const showPreview = isMouseOverCanvas && !isDrawing && (
-        currentTool === 'pencil' || currentTool === 'eraser' || currentTool === 'fill'
+        currentTool === 'pencil' ||
+        currentTool === 'eraser' ||
+        currentTool === 'fill'
     );
+
+    if (currentTool === 'text') {
+        // For text, we just use a text cursor
+        canvas.style.cursor = drawingEnabled ? 'text' : 'not-allowed';
+        return;
+    }
 
     if (showPreview || isDrawing) {
         canvas.style.cursor = 'none';
@@ -548,7 +518,11 @@ function drawCursorPreview(x, y) {
 function updateCursorPreview(x, y) {
     if (!isMouseOverCanvas || isDrawing) {
         clearOverlay();
-    } else if (currentTool === 'pencil' || currentTool === 'eraser' || currentTool === 'fill') {
+    } else if (
+        currentTool === 'pencil' ||
+        currentTool === 'eraser' ||
+        currentTool === 'fill'
+    ) {
         drawCursorPreview(x, y);
     } else {
         clearOverlay();
@@ -556,7 +530,6 @@ function updateCursorPreview(x, y) {
     setCursorStyle();
 }
 
-// --------------- Event Handlers ---------------
 function handleMouseEnter(e) {
     isMouseOverCanvas = true;
     const { x, y } = getEventCoords(e);
@@ -574,6 +547,30 @@ function handleMouseLeave(e) {
 function handleMouseDown(e) {
     if (e.target !== canvas) return;
     if (!drawingEnabled || !myPlayerId) return;
+
+    // [CHANGED for TEXT TOOL]
+    if (currentTool === 'text') {
+        const { x, y } = getEventCoords(e);
+        const userText = prompt("Enter text:");
+        if (userText && userText.trim().length > 0) {
+            const cmdId = generateCommandId();
+            const strokeId = generateStrokeId();
+            const command = {
+                cmdId,
+                strokeId,
+                type: 'text',
+                x,
+                y,
+                text: userText.trim(),
+                color: currentStrokeStyle,
+                size: currentLineWidth // We interpret it as a font-size factor
+            };
+            executeCommand(command, context);
+            addCommandToHistory(command, myPlayerId);
+            if (emitDrawCallback) emitDrawCallback(command);
+        }
+        return; // Don’t do standard drawing for text
+    }
 
     isMouseOverCanvas = true;
     const { x, y } = getEventCoords(e);
@@ -651,7 +648,6 @@ function handleMouseUp(e) {
     } else if (toolUsed === 'pencil' || toolUsed === 'eraser') {
         if (wasDrawing) {
             if (x === lastX && y === lastY) {
-                // single click => dot
                 drawLocalSegment(x, y, x + 0.01, y + 0.01);
                 emitDrawSegment(x, y, x + 0.01, y + 0.01);
             } else {
@@ -676,7 +672,6 @@ function handleMouseUp(e) {
     }
 }
 
-// Touch
 function handleTouchStart(e) {
     if (e.target !== canvas) return;
     if (!drawingEnabled) return;
@@ -725,7 +720,9 @@ function emitDrawSegment(x0, y0, x1, y1) {
     if (!emitDrawCallback || !myPlayerId || !currentStrokeId) return;
     const cmdId = generateCommandId();
     const command = {
-        cmdId, strokeId: currentStrokeId, type: 'line',
+        cmdId,
+        strokeId: currentStrokeId,
+        type: 'line',
         x0, y0, x1, y1,
         tool: currentTool,
         color: currentTool === 'eraser' ? null : currentStrokeStyle,
@@ -740,3 +737,4 @@ function drawLocalSegment(x0, y0, x1, y1) {
     context.lineTo(x1, y1);
     context.stroke();
 }
+

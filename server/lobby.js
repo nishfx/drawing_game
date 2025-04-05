@@ -3,7 +3,7 @@ import GameManager from './gameManager.js';
 import { getRandomColor } from './utils.js';
 
 const MAX_PLAYERS_PER_LOBBY = 4;
-const MIN_PLAYERS_TO_START = 1; // For easy local testing
+const MIN_PLAYERS_TO_START = 1;
 
 class Lobby {
     constructor(id, io, lobbyManager) {
@@ -13,6 +13,7 @@ class Lobby {
         this.players = new Map();
         this.hostId = null;
         this.maxPlayers = MAX_PLAYERS_PER_LOBBY;
+
         this.gameManager = new GameManager(this.io, this.id);
         this.gameManager.setLobbyReference(this);
 
@@ -22,6 +23,11 @@ class Lobby {
     }
 
     addPlayer(socket, username, isHost = false) {
+        // If already in the lobby map, ignore
+        if (this.players.has(socket.id)) {
+            console.warn(`[Lobby ${this.id}] addPlayer: socket already present: ${socket.id}`);
+        }
+
         const playerData = {
             id: socket.id,
             name: username,
@@ -41,17 +47,20 @@ class Lobby {
             this.players.forEach(p => {
                 if (p.id !== this.hostId) p.isHost = false;
             });
-        } else {
-            playerData.isHost = false;
         }
 
         console.log(`[Lobby ${this.id}] ${username} (${socket.id}) added. Host? ${playerData.isHost}`);
+
+        // Immediately broadcast “X has joined the lobby.”
+        this.broadcastSystemMessage(`${username} has joined the lobby.`);
+
         this.sendLobbyState(socket);
         this.broadcastLobbyPlayerList();
         return true;
     }
 
-    removePlayer(socket) {
+    removePlayer(socket, opts = {}) {
+        // opts.silent => skip “XYZ has left the lobby.”
         const playerData = this.players.get(socket.id);
         if (!playerData) {
             console.log(`[Lobby ${this.id}] removePlayer: not found: ${socket.id}`);
@@ -70,8 +79,9 @@ class Lobby {
         this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => cmd.playerId !== socket.id);
         console.log(`[Lobby ${this.id}] Removed ${initialCount - this.lobbyCanvasCommands.length} commands for ${username}.`);
 
-        const isGracePeriod = this.lobbyManager.recentlyCreated.has(this.id);
-        if (!(wasOnlyPlayer && isGracePeriod)) {
+        // Only broadcast “left” if not silent
+        if (!opts.silent) {
+            // If the lobby was just created & is empty, we skip the message
             this.broadcastSystemMessage(`${username} has left the lobby.`);
         }
 
@@ -108,25 +118,32 @@ class Lobby {
         }
     }
 
-    isFull() { return this.players.size >= this.maxPlayers; }
-    isEmpty() { return this.players.size === 0; }
+    isFull() {
+        return this.players.size >= this.maxPlayers;
+    }
+    isEmpty() {
+        return this.players.size === 0;
+    }
 
     isUsernameTaken(username) {
         return Array.from(this.players.values()).some(p => p.name.toLowerCase() === username.toLowerCase());
     }
+
     isUsernameTakenByOther(username, ownSocketId) {
         const lower = username.toLowerCase();
         for (const [id, p] of this.players.entries()) {
-            if (id !== ownSocketId && p.name.toLowerCase() === lower) return true;
+            if (id !== ownSocketId && p.name.toLowerCase() === lower) {
+                return true;
+            }
         }
         return false;
     }
+
     getHostName() {
         const host = this.players.get(this.hostId);
         return host ? host.name : 'N/A';
     }
 
-    // ---------------------------------------------------
     sendLobbyState(socket) {
         const state = {
             lobbyId: this.id,
@@ -148,7 +165,11 @@ class Lobby {
 
     broadcastLobbyPlayerList() {
         const playerList = Array.from(this.players.values(), p => ({
-            id: p.id, name: p.name, color: p.color, isHost: p.isHost, score: p.score || 0
+            id: p.id,
+            name: p.name,
+            color: p.color,
+            isHost: p.isHost,
+            score: p.score || 0
         }));
         this.io.to(this.id).emit('lobby player list update', playerList);
     }
@@ -196,34 +217,45 @@ class Lobby {
         let isValid = false;
         switch (drawCommand.type) {
             case 'line':
-                isValid = (
-                    typeof drawCommand.x0 === 'number' && typeof drawCommand.y0 === 'number' &&
-                    typeof drawCommand.x1 === 'number' && typeof drawCommand.y1 === 'number' &&
-                    typeof drawCommand.size === 'number' && typeof drawCommand.strokeId === 'string'
-                );
+                isValid =
+                    typeof drawCommand.x0 === 'number' &&
+                    typeof drawCommand.y0 === 'number' &&
+                    typeof drawCommand.x1 === 'number' &&
+                    typeof drawCommand.y1 === 'number' &&
+                    typeof drawCommand.size === 'number' &&
+                    typeof drawCommand.strokeId === 'string';
                 break;
             case 'fill':
-                isValid = (
-                    typeof drawCommand.x === 'number' && typeof drawCommand.y === 'number' &&
-                    typeof drawCommand.color === 'string'
-                );
+                isValid =
+                    typeof drawCommand.x === 'number' &&
+                    typeof drawCommand.y === 'number' &&
+                    typeof drawCommand.color === 'string';
                 break;
             case 'rect':
-                isValid = (
-                    typeof drawCommand.x0 === 'number' && typeof drawCommand.y0 === 'number' &&
-                    typeof drawCommand.x1 === 'number' && typeof drawCommand.y1 === 'number' &&
-                    typeof drawCommand.color === 'string' && typeof drawCommand.size === 'number'
-                );
+                isValid =
+                    typeof drawCommand.x0 === 'number' &&
+                    typeof drawCommand.y0 === 'number' &&
+                    typeof drawCommand.x1 === 'number' &&
+                    typeof drawCommand.y1 === 'number' &&
+                    typeof drawCommand.color === 'string' &&
+                    typeof drawCommand.size === 'number';
                 break;
             case 'ellipse':
-                isValid = (
+                isValid =
                     typeof drawCommand.cx === 'number' &&
                     typeof drawCommand.cy === 'number' &&
                     typeof drawCommand.rx === 'number' &&
                     typeof drawCommand.ry === 'number' &&
                     typeof drawCommand.color === 'string' &&
-                    typeof drawCommand.size === 'number'
-                );
+                    typeof drawCommand.size === 'number';
+                break;
+            case 'text': // [CHANGED] Validate text command
+                isValid =
+                    typeof drawCommand.x === 'number' &&
+                    typeof drawCommand.y === 'number' &&
+                    typeof drawCommand.text === 'string' &&
+                    typeof drawCommand.color === 'string' &&
+                    typeof drawCommand.size === 'number';
                 break;
             case 'clear':
                 isValid = true;
@@ -265,10 +297,6 @@ class Lobby {
         }
     }
 
-    /**
-     * ***CHANGED*** so we broadcast `playerId` in “lobby commands removed”
-     * ensuring only that player's strokes get removed on the client side.
-     */
     handleUndoLastDraw(socket, data) {
         if (!this.players.has(socket.id)) return;
         const playerId = socket.id;
@@ -291,7 +319,7 @@ class Lobby {
                 this.io.to(this.id).emit('lobby commands removed', {
                     cmdIds: commandsToRemove,
                     strokeId,
-                    playerId // <-- CHANGED
+                    playerId
                 });
             }
         } else if (cmdId) {
@@ -305,7 +333,7 @@ class Lobby {
                     this.io.to(this.id).emit('lobby commands removed', {
                         cmdIds: commandsToRemove,
                         strokeId: null,
-                        playerId // <-- CHANGED
+                        playerId
                     });
                 } else {
                     console.warn(`[Lobby ${this.id}] Player ${playerId} tried to undo command of another player?`);
@@ -335,6 +363,7 @@ class Lobby {
     getPlayerCount() {
         return this.players.size;
     }
+
     attemptAutoStartGame() {
         // no-op
     }
