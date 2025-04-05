@@ -39,15 +39,16 @@ export function initCanvas(canvasId, drawEventEmitter) {
     if (!context) { console.error("Failed to get 2D context"); return false; }
 
     overlayCanvas = document.createElement('canvas');
-    overlayCanvas.width = canvas.width;
+    overlayCanvas.width = canvas.width;   // Match internal resolution
     overlayCanvas.height = canvas.height;
     overlayCanvas.style.position = 'absolute';
-    overlayCanvas.style.top = '0'; // Align overlay with the parent's top-left
-    overlayCanvas.style.left = '0';
-    overlayCanvas.style.width = '100%'; // Make overlay fill the parent container
-    overlayCanvas.style.height = '100%';
+    // ** Position overlay precisely over the main canvas **
+    overlayCanvas.style.top = canvas.offsetTop + 'px';
+    overlayCanvas.style.left = canvas.offsetLeft + 'px';
+    overlayCanvas.style.width = canvas.clientWidth + 'px'; // Match visual size
+    overlayCanvas.style.height = canvas.clientHeight + 'px';
     overlayCanvas.style.pointerEvents = 'none';
-    // Parent container (#lobby-canvas-area or #drawing-controls) needs position: relative (set in CSS)
+    // Parent needs relative positioning (set in CSS)
     canvas.parentNode.insertBefore(overlayCanvas, canvas);
     overlayCtx = overlayCanvas.getContext('2d');
 
@@ -77,6 +78,10 @@ export function initCanvas(canvasId, drawEventEmitter) {
     window.addEventListener('touchend', handleTouchEnd);
     window.addEventListener('touchcancel', handleTouchEnd);
 
+    // Optional: Add resize observer if canvas size can change dynamically
+    // const resizeObserver = new ResizeObserver(...);
+    // resizeObserver.observe(canvas);
+
     console.log(`Canvas "${canvasId}" initialized`);
     clearHistory();
     disableDrawing();
@@ -93,12 +98,10 @@ export function enableDrawing() {
     drawingEnabled = true;
     console.log("Drawing enabled");
     // Set initial cursor style based on current state
-    setCursorStyle();
+    setCursorStyle(); // Call the function here
     // Trigger a preview update in case mouse is already over canvas
     if (isMouseOverCanvas) {
-        // Need to simulate a mouse move to get initial coordinates if needed
-        // For now, let's just ensure the cursor is correct
-        updateCursorPreview(currentMouseX, currentMouseY); // Update based on last known pos
+        updateCursorPreview(currentMouseX, currentMouseY);
     }
 }
 
@@ -412,38 +415,34 @@ export function undoLastAction(socket) {
 
 // --- Internal Drawing Logic ---
 
-// ** Use offsetX/offsetY for Mouse Events **
+// ** Reverted Coordinate Calculation using getBoundingClientRect **
 function getEventCoords(e) {
     if (!canvas) return { x: 0, y: 0 };
-    let x, y;
+    const rect = canvas.getBoundingClientRect(); // Use getBoundingClientRect
 
-    // For touch events, calculate relative to the canvas bounding box
+    let clientX, clientY;
     if (e.touches && e.touches.length > 0) {
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        x = touch.clientX - rect.left;
-        y = touch.clientY - rect.top;
-        e.preventDefault(); // Prevent scrolling/zooming on canvas touch
-    }
-    // For mouse events, use offsetX/offsetY relative to the target (canvas)
-    else if (e.offsetX !== undefined && e.offsetY !== undefined) {
-        x = e.offsetX;
-        y = e.offsetY;
-    }
-    // Fallback (less reliable)
-    else {
-        const rect = canvas.getBoundingClientRect();
-        x = e.clientX - rect.left;
-        y = e.clientY - rect.top;
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+        e.preventDefault();
+    } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
     }
 
-    // Apply scaling if canvas display size differs from internal resolution
-    const rect = canvas.getBoundingClientRect(); // Need rect for scaling calculation
+    // Calculate position relative to the viewport-relative bounding box
+    const xRelativeToRect = clientX - rect.left;
+    const yRelativeToRect = clientY - rect.top;
+
+    // Calculate scaling factor based on actual rendered size vs internal resolution
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
-    // Return scaled coordinates
-    return { x: x * scaleX, y: y * scaleY };
+    // Apply scaling to get coordinates within the canvas's internal resolution
+    const canvasX = xRelativeToRect * scaleX;
+    const canvasY = yRelativeToRect * scaleY;
+
+    return { x: canvasX, y: canvasY };
 }
 
 
@@ -484,6 +483,11 @@ function setCursorStyle() {
 
 function clearOverlay() {
     if (overlayCtx && overlayCanvas) {
+        // Ensure overlay internal size matches main canvas before clearing
+        if (overlayCanvas.width !== canvas.width || overlayCanvas.height !== canvas.height) {
+             overlayCanvas.width = canvas.width;
+             overlayCanvas.height = canvas.height;
+        }
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
 }
@@ -497,7 +501,7 @@ function drawCursorPreview(x, y) {
 
     const radius = currentLineWidth / 2;
     overlayCtx.beginPath();
-    // Use non-rounded coords from getEventCoords
+    // Use the calculated canvas coordinates directly
     overlayCtx.arc(x, y, Math.max(1, radius), 0, Math.PI * 2);
     overlayCtx.strokeStyle = currentTool === 'eraser' ? '#555555' : currentStrokeStyle;
     overlayCtx.lineWidth = 1;
@@ -507,7 +511,7 @@ function drawCursorPreview(x, y) {
     overlayCtx.lineWidth = currentLineWidth; // Restore for shape previews
     overlayCtx.strokeStyle = currentStrokeStyle;
 
-    // Hiding cursor is handled by setCursorStyle called in updateCursorPreview
+    // Hiding cursor is handled by setCursorStyle
 }
 
 function updateCursorPreview(x, y) {
@@ -526,10 +530,9 @@ function updateCursorPreview(x, y) {
 
 function handleMouseEnter(e) {
     isMouseOverCanvas = true;
-    // Get coords immediately to show preview at the right spot
     const { x, y } = getEventCoords(e);
     currentMouseX = x; currentMouseY = y;
-    updateCursorPreview(x, y);
+    updateCursorPreview(x, y); // Update preview and cursor style
 }
 
 function handleMouseLeave(e) {
@@ -635,6 +638,7 @@ function handleMouseUp(e) {
 
     if (toolUsed === 'fill') {
         // Check if the click actually originated on the canvas
+        // We check startX/Y because isDrawing is false for fill
         if (!wasDrawing && startX !== null && startY !== null && e.target === canvas) {
             console.log(`Fill tool used at (${Math.round(x)}, ${Math.round(y)})`);
             const cmdId = generateCommandId();
@@ -709,6 +713,7 @@ function handleTouchMove(e) {
         if (isDrawing) {
             handleMouseMove(e);
         }
+        // No cursor preview update needed for touch
     }
 }
 
