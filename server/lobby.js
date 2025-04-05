@@ -21,6 +21,7 @@ class Lobby {
     }
 
     // --- Player Management ---
+    // ... (addPlayer, removePlayer, etc. - unchanged from previous correct version) ...
     addPlayer(socket, username, isHost = false) {
         const playerData = {
             id: socket.id, name: username, color: getRandomColor(),
@@ -55,7 +56,6 @@ class Lobby {
         socket.leave(this.id);
         console.log(`${username} (${leavingSocketId}) left lobby ${this.id}.`);
 
-        // Remove player's drawing commands from history
         this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => cmd.playerId !== leavingSocketId);
 
         const isGracePeriod = this.lobbyManager.recentlyCreated.has(this.id);
@@ -106,7 +106,9 @@ class Lobby {
     }
     getHostName() { const host = this.players.get(this.hostId); return host ? host.name : 'N/A'; }
 
+
     // --- Broadcasting & State ---
+    // ... (sendLobbyState, broadcastLobbyPlayerList, broadcastSystemMessage - unchanged) ...
     sendLobbyState(socket) {
         const state = {
             lobbyId: this.id,
@@ -132,6 +134,7 @@ class Lobby {
 
     // --- Event Handling ---
 
+    // ... (registerSocketEvents, handleLobbyChatMessage - unchanged) ...
     registerSocketEvents(socket) {
          console.log(`Registering lobby/game events for ${socket.id} in lobby ${this.id}`);
          socket.removeAllListeners('lobby chat message');
@@ -153,6 +156,7 @@ class Lobby {
         this.io.to(this.id).emit('lobby chat message', msgData);
     }
 
+
     handleLobbyDraw(socket, drawCommand) {
         if (!this.players.has(socket.id) || !drawCommand || !drawCommand.type || !drawCommand.cmdId) {
             console.warn(`Lobby ${this.id}: Invalid lobby draw data from ${socket.id}:`, drawCommand);
@@ -161,9 +165,10 @@ class Lobby {
         const commandWithPlayer = { ...drawCommand, playerId: socket.id };
         let isValid = false;
         switch(drawCommand.type) {
-            case 'line': isValid = typeof drawCommand.x0 === 'number' && typeof drawCommand.y0 === 'number' && typeof drawCommand.x1 === 'number' && typeof drawCommand.y1 === 'number' && typeof drawCommand.size === 'number' && typeof drawCommand.strokeId === 'string'; break; // Check strokeId for lines
+            case 'line': isValid = typeof drawCommand.x0 === 'number' && typeof drawCommand.y0 === 'number' && typeof drawCommand.x1 === 'number' && typeof drawCommand.y1 === 'number' && typeof drawCommand.size === 'number' && typeof drawCommand.strokeId === 'string'; break;
             case 'fill': isValid = typeof drawCommand.x === 'number' && typeof drawCommand.y === 'number' && typeof drawCommand.color === 'string'; break;
             case 'rect': isValid = typeof drawCommand.x0 === 'number' && typeof drawCommand.y0 === 'number' && typeof drawCommand.x1 === 'number' && typeof drawCommand.y1 === 'number' && typeof drawCommand.color === 'string' && typeof drawCommand.size === 'number'; break;
+            case 'ellipse': isValid = typeof drawCommand.cx === 'number' && typeof drawCommand.cy === 'number' && typeof drawCommand.rx === 'number' && typeof drawCommand.ry === 'number' && typeof drawCommand.color === 'string' && typeof drawCommand.size === 'number'; break; // Added ellipse validation
             case 'clear': isValid = true; break;
             default: console.warn(`Lobby ${this.id}: Unknown draw command type: ${drawCommand.type}`); isValid = false;
         }
@@ -172,7 +177,7 @@ class Lobby {
         if (commandWithPlayer.type === 'clear') {
             console.log(`Lobby ${this.id}: Clearing canvas commands by ${socket.id}.`);
             this.lobbyCanvasCommands = [];
-            this.lobbyCanvasCommands.push(commandWithPlayer); // Add clear command itself
+            this.lobbyCanvasCommands.push(commandWithPlayer);
             this.io.to(this.id).emit('lobby draw update', commandWithPlayer);
         } else {
             this.lobbyCanvasCommands.push(commandWithPlayer);
@@ -192,7 +197,7 @@ class Lobby {
             return;
         }
 
-        let commandsToRemove = [];
+        let commandsToRemove = []; // Store IDs of commands actually removed
         let initialLength = this.lobbyCanvasCommands.length;
 
         if (strokeId) {
@@ -224,6 +229,7 @@ class Lobby {
 
         // If any commands were removed, notify clients
         if (commandsToRemove.length > 0) {
+            // *** Send the array of removed command IDs ***
             this.io.to(this.id).emit('lobby commands removed', { cmdIds: commandsToRemove });
         } else {
              console.log(`Lobby ${this.id}: No commands found to undo for player ${playerId} with data:`, data);
@@ -232,6 +238,7 @@ class Lobby {
     }
 
 
+    // ... (handleStartGameRequest, getPlayerCount, attemptAutoStartGame - unchanged) ...
     handleStartGameRequest(socket) {
         if (socket.id !== this.hostId) { socket.emit('system message', 'Only host can start.'); return; }
         if (this.players.size < MIN_PLAYERS_TO_START) {
@@ -246,6 +253,7 @@ class Lobby {
 
     getPlayerCount() { return this.players.size; }
     attemptAutoStartGame() { /* Auto-start disabled */ }
+
 }
 
 export default Lobby;

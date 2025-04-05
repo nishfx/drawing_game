@@ -12,8 +12,6 @@
     <div id="header-area">
         <img src="/game/images/header.jpeg" alt="Drawing Game Logo" width="444" height="250" style="display: block; margin: 0 auto 20px auto; max-width: 100%;">
         <p id="lobby-status">Waiting for players...</p>
-        <!-- REMOVED Status: Connected line -->
-        <!-- <p>Status: <span id="status" style="font-weight: normal;">Connecting...</span></p> -->
     </div>
 
     <div id="main-layout">
@@ -30,10 +28,10 @@
             <div id="lobby-drawing-tools">
                 <!-- Tool Buttons -->
                 <button class="tool-button active" data-tool="pencil" title="Pencil">✏️</button>
-                <button class="tool-button" data-tool="eraser" title="Eraser (Global)">🧼</button>
+                <button class="tool-button" data-tool="eraser" title="Eraser">🧼</button>
                 <button class="tool-button" data-tool="fill" title="Fill">💧</button>
                 <button class="tool-button" data-tool="rectangle" title="Rectangle Tool">□</button>
-                <!-- <button class="tool-button" data-tool="circle" title="Circle Tool (Not Implemented)">○</button> -->
+                <button class="tool-button" data-tool="ellipse" title="Ellipse Tool">○</button> {/* Added */}
 
                 <!-- Color Picker -->
                 <input type="color" id="color-picker" value="#000000" title="Color Picker">
