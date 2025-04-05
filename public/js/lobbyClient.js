@@ -1,3 +1,5 @@
+// public/js/lobbyClient.js
+// (Restored original socket path)
 import * as CanvasManager from './canvasManager.js';
 import * as PlayerListUI from './ui/playerListUI.js';
 import * as ChatUI from './ui/chatUI.js';
@@ -63,10 +65,8 @@ function initializeLobby() {
 function setupSocketConnection(lobbyId, username) {
     if (socket && socket.connected) socket.disconnect();
 
-    // --- Connect specifying the path - Add /game prefix ---
-    // If running WITHOUT Nginx locally, change path to '/game/socket.io'
-    const socketPath = '/socket.io'; // For Nginx setup removing /game prefix
-    // const socketPath = '/game/socket.io'; // For local testing without Nginx
+    // --- Connect specifying the original path ---
+    const socketPath = '/game/socket.io'; // Use path WITH /game prefix
     console.log(`Attempting to connect socket at ${socketPath}`);
     socket = io({ path: socketPath });
 

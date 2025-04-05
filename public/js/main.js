@@ -1,3 +1,5 @@
+// public/js/main.js
+// (Restored original socket path)
 import * as LobbyListUI from './ui/lobbyListUI.js';
 
 const usernameForm = document.getElementById('username-form');
@@ -18,10 +20,8 @@ function connectSocket() {
         requestLobbyList(); // Request list if already connected
         return;
     }
-    // --- Connect specifying the path - Add /game prefix ---
-    // If running WITHOUT Nginx locally, change path to '/game/socket.io'
-    const socketPath = '/socket.io'; // For Nginx setup removing /game prefix
-    // const socketPath = '/game/socket.io'; // For local testing without Nginx
+    // --- Connect specifying the original path ---
+    const socketPath = '/game/socket.io'; // Use path WITH /game prefix
     console.log(`Attempting to connect socket at ${socketPath}`);
     socket = io({ path: socketPath });
     // --- End Connect ---

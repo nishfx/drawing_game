@@ -1,3 +1,5 @@
+// public/js/gameClient.js
+// (Restored original socket path)
 import * as UIManager from './uiManager.js';
 import * as CanvasManager from './canvasManager.js'; // Game uses canvas but without tools
 import * as VotingUI from './ui/votingUI.js';
@@ -5,10 +7,8 @@ import * as ChatUI from './ui/chatUI.js'; // Import ChatUI
 
 console.log("Game Client script loaded.");
 
-// --- Specify path for Socket.IO connection - Add /game prefix ---
-// If running WITHOUT Nginx locally, change path to '/game/socket.io'
-const socketPath = '/socket.io'; // For Nginx setup removing /game prefix
-// const socketPath = '/game/socket.io'; // For local testing without Nginx
+// --- Specify path for Socket.IO connection ---
+const socketPath = '/game/socket.io'; // Use path WITH /game prefix
 const socket = io({ path: socketPath });
 // --- End Specify ---
 
@@ -32,7 +32,8 @@ function initializeGame() {
 
     console.log(`Initializing game for lobby: ${currentLobbyId}, user: ${username}`);
     // Initialize canvas but don't pass draw handler (no drawing tools here)
-    if (!CanvasManager.initCanvas('drawing-canvas')) {
+    // Game canvas doesn't need the event emitter callback
+    if (!CanvasManager.initCanvas('drawing-canvas', null)) {
         handleFatalError("Failed to initialize game canvas."); return;
     }
     // Game canvas starts disabled, enabled only by server state
@@ -80,7 +81,6 @@ function initializeGame() {
     });
 
     // No 'my info' needed, ID set on connect
-    // socket.on('my info', (player) => { myPlayerId = player.id; console.log("My game info:", player); });
 
     socket.on('update player list', (players) => { UIManager.updatePlayerList(players, myPlayerId); });
     socket.on('chat message', (msgData) => {
@@ -125,9 +125,12 @@ function initializeGame() {
         // Enable/disable drawing based on phase
         if (state.phase === 'DRAWING') {
             // Only enable drawing if the player hasn't submitted yet
-            // (We don't get the 'readyPlayers' list here, so enable for now,
-            // disable happens on 'player ready' emit or phase change)
-            CanvasManager.enableDrawing();
+            // We check the readyButton state which is disabled after submission
+            if (readyButton && !readyButton.disabled) {
+                CanvasManager.enableDrawing();
+            } else {
+                CanvasManager.disableDrawing(); // Keep disabled if already submitted
+            }
             CanvasManager.clearCanvas(false); // Clear canvas at start of drawing phase
         } else {
             CanvasManager.disableDrawing();
@@ -137,18 +140,11 @@ function initializeGame() {
     socket.on('round start', ({ word, duration }) => {
         console.log(`Round Start. Word: ${word}, Duration: ${duration}s`);
         // State update handles canvas clear/enable and timer start
-        // CanvasManager.clearCanvas(false); // Moved to state update
-        // CanvasManager.enableDrawing(); // Moved to state update
-        // if (typeof duration === 'number' && duration > 0) { UIManager.startTimer(duration); } // Moved to state update
-        // else { console.error(`Invalid duration: ${duration}`); }
     });
 
     socket.on('voting start', ({ duration }) => {
         console.log(`Voting Start. Duration: ${duration}s`);
         // State update handles canvas disable and timer start
-        // CanvasManager.disableDrawing(); // Moved to state update
-        // if (typeof duration === 'number' && duration > 0) { UIManager.startTimer(duration); } // Moved to state update
-        // else { console.error(`Invalid duration: ${duration}`); }
     });
 
     socket.on('vote error', (message) => {
