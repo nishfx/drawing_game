@@ -92,9 +92,10 @@ body {
     display: flex;
     flex-direction: row;
     width: 100%;
-    max-width: 1300px; /* Game layout max width */
+    max-width: 1300px;
     gap: 20px; /* Consistent gap */
-    align-items: stretch; /* Make columns equal height */
+    align-items: stretch;
+    margin-bottom: 20px; /* Add margin below main layout before start button */
 }
 
 /* Player list area */
@@ -313,61 +314,34 @@ body {
 }
 #lobby-drawing-tools {
     display: flex;
-    flex-wrap: wrap; /* Allow tools to wrap */
-    gap: 10px; /* Increased gap */
-    padding: 12px; /* Increased padding */
-    background-color: #e9ecef; /* Light background for tool area */
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px;
+    background-color: #e9ecef;
     border: 1px solid #ccc;
     border-radius: 4px;
-    margin-top: 10px; /* Space above tools */
-    flex-shrink: 0; /* Prevent tool area shrinking */
-    align-items: center; /* Align items vertically */
-}
-.tool-button {
-    padding: 8px 12px; /* Increased padding */
-    font-size: 1.1em; /* Increased font size */
-    border: 1px solid #adb5bd;
-    background-color: #fff;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    line-height: 1; /* Better vertical alignment */
-}
-.tool-button:hover {
-    background-color: #f1f3f5;
-}
-.tool-button.active { /* Style for selected tool */
-    background-color: #007bff;
-    color: white;
-    border-color: #0056b3;
-}
-#lobby-drawing-tools input[type="color"] {
-    height: 36px; /* Match button height better */
-    width: 40px; /* Give color picker some width */
-    padding: 2px;
-    border: 1px solid #adb5bd;
-    border-radius: 4px;
-    cursor: pointer;
-    vertical-align: middle; /* Align with buttons */
-}
-#lobby-drawing-tools select {
-    padding: 7px 10px; /* Adjust padding */
-    font-size: 0.9em;
-    border: 1px solid #adb5bd;
-    border-radius: 4px;
-    height: 36px; /* Match button height */
-    vertical-align: middle; /* Align with buttons */
-}
-
-
-#lobby-controls { /* Container for Start Game button */
-    margin-top: auto; /* Push start button to bottom */
-    padding-top: 15px; /* Space above start button */
-    text-align: center; /* Center button */
+    margin-top: auto; /* Push tools to bottom of canvas area */
     flex-shrink: 0;
+    align-items: center;
+}
+.tool-button { padding: 8px 12px; font-size: 1.1em; border: 1px solid #adb5bd; background-color: #fff; border-radius: 4px; cursor: pointer; transition: background-color 0.2s ease; line-height: 1; }
+.tool-button:hover { background-color: #f1f3f5; }
+.tool-button.active { background-color: #007bff; color: white; border-color: #0056b3; }
+#lobby-drawing-tools input[type="color"] { height: 36px; width: 40px; padding: 2px; border: 1px solid #adb5bd; border-radius: 4px; cursor: pointer; vertical-align: middle; }
+#lobby-drawing-tools select { padding: 7px 10px; font-size: 0.9em; border: 1px solid #adb5bd; border-radius: 4px; height: 36px; vertical-align: middle; }
+
+
+/* Start Game Button Container (Moved below main layout) */
+#lobby-controls {
+    width: 100%; /* Take full width */
+    max-width: 1300px; /* Match main layout width */
+    text-align: center; /* Center button */
+    padding: 10px 0; /* Add some padding */
 }
 #lobby-controls button#start-game-btn {
-    padding: 10px 20px; font-size: 1.1em; cursor: pointer;
+    padding: 12px 25px; /* Slightly larger button */
+    font-size: 1.2em;
+    cursor: pointer;
     background-color: #28a745; color: white; border: none; border-radius: 4px;
 }
 #lobby-controls button#start-game-btn:hover { background-color: #218838; }

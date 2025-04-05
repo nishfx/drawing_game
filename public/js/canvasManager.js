@@ -47,7 +47,6 @@ export function enableDrawing() {
     if (!canvas) return;
     drawingEnabled = true;
     canvas.style.cursor = 'crosshair'; // Default cursor
-    // Set cursor based on current tool if needed (e.g., specific eraser cursor)
     setCursorForTool(currentTool);
     console.log("Drawing enabled");
 }
@@ -87,7 +86,6 @@ export function setTool(toolName) {
     currentTool = toolName;
     console.log("Tool set to:", currentTool);
     setCursorForTool(currentTool);
-    // Reset composite operation when switching away from eraser
     if (context && currentTool !== 'eraser') {
         context.globalCompositeOperation = 'source-over';
     }
@@ -99,48 +97,36 @@ export function setColor(color) {
 }
 
 export function setLineWidth(width) {
-    currentLineWidth = parseInt(width, 10) || 5; // Ensure it's a number, default 5
+    currentLineWidth = parseInt(width, 10) || 5;
     console.log("Line width set to:", currentLineWidth);
 }
 
 // --- Function to draw commands received from others ---
 export function drawExternalCommand(data) {
     if (!context || !data) return;
-
-    // Save current local context settings
     const originalStrokeStyle = context.strokeStyle;
     const originalLineWidth = context.lineWidth;
     const originalCompositeOp = context.globalCompositeOperation;
-
     try {
         if (data.type === 'line' && data.x0 !== undefined) {
-            // Use data from the event
-            const drawColor = data.color || originalStrokeStyle; // Fallback to current if missing
+            const drawColor = data.color || originalStrokeStyle;
             const drawWidth = data.size || originalLineWidth;
-            const toolUsed = data.tool || 'pencil'; // Assume pencil if missing
-
+            const toolUsed = data.tool || 'pencil';
             context.strokeStyle = drawColor;
             context.lineWidth = drawWidth;
-
-            // Handle eraser for external commands
             if (toolUsed === 'eraser') {
                 context.globalCompositeOperation = 'destination-out';
-                // Optional: Use background color if destination-out isn't desired/supported everywhere
-                // context.strokeStyle = CANVAS_BACKGROUND_COLOR;
             } else {
                 context.globalCompositeOperation = 'source-over';
             }
-
             drawLocalLine(data.x0, data.y0, data.x1, data.y1);
-
         } else if (data.type === 'clear') {
             console.log("Received external clear command");
-            clearCanvas(false); // Clear locally, don't re-emit
+            clearCanvas(false);
         }
     } catch (error) {
         console.error("Error drawing external command:", error, data);
     } finally {
-        // Restore local context settings
         context.strokeStyle = originalStrokeStyle;
         context.lineWidth = originalLineWidth;
         context.globalCompositeOperation = originalCompositeOp;
@@ -150,33 +136,43 @@ export function drawExternalCommand(data) {
 
 // --- Internal Drawing Logic ---
 
+// *** UPDATED getEventCoords to handle scaling ***
 function getEventCoords(e) {
-    // (Function remains the same as previous step)
     if (!canvas) return [0, 0];
-    const rect = canvas.getBoundingClientRect();
+    const rect = canvas.getBoundingClientRect(); // Position relative to viewport
+
+    // Calculate scale factor if display size differs from internal resolution
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
     let clientX, clientY;
+
     if (e.touches && e.touches.length > 0) {
         clientX = e.touches[0].clientX;
         clientY = e.touches[0].clientY;
-        e.preventDefault();
+        e.preventDefault(); // Prevent scroll/zoom on touch move
     } else {
         clientX = e.clientX;
         clientY = e.clientY;
     }
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    return [x, y];
+
+    // Calculate coordinates relative to the canvas element and apply scaling
+    const canvasX = (clientX - rect.left) * scaleX;
+    const canvasY = (clientY - rect.top) * scaleY;
+
+    return [canvasX, canvasY];
 }
+// *** END UPDATED getEventCoords ***
+
 
 function setCursorForTool(tool) {
     if (!canvas) return;
     switch (tool) {
         case 'eraser':
-            // Consider a custom eraser cursor if desired
-            canvas.style.cursor = 'cell'; // Example: cell cursor for eraser
+            canvas.style.cursor = 'cell';
             break;
         case 'fill':
-            canvas.style.cursor = 'copy'; // Example: copy cursor for fill
+            canvas.style.cursor = 'copy';
             break;
         case 'pencil':
         default:
@@ -191,54 +187,6 @@ function handleMouseDown(e) {
     isDrawing = true;
     [lastX, lastY] = getEventCoords(e);
 
-    // Apply tool-specific settings *before* starting to draw
-    if (currentTool === 'eraser') {
-        context.globalCompositeOperation = 'destination-out';
-        // If not using destination-out, set strokeStyle to background here
-        // context.strokeStyle = CANVAS_BACKGROUND_COLOR;
-    } else {
-        context.globalCompositeOperation = 'source-over';
-        context.strokeStyle = currentStrokeStyle; // Ensure pencil uses selected color
-    }
-    context.lineWidth = currentLineWidth; // Always use selected width
-
-    // Optional: Draw a single point on mousedown for better feedback
-    // drawLocalLine(lastX, lastY, lastX, lastY);
-    // emitDrawData(lastX, lastY, lastX, lastY); // Emit the single point too
-}
-
-function handleMouseMove(e) {
-    if (!isDrawing || !drawingEnabled) return;
-    const [currentX, currentY] = getEventCoords(e);
-
-    // Settings (color, width, compositeOp) should already be set from mousedown/tool change
-    drawLocalLine(lastX, lastY, currentX, currentY);
-    emitDrawData(lastX, lastY, currentX, currentY); // Emit data with current tool settings
-
-    [lastX, lastY] = [currentX, currentY];
-}
-
-function handleMouseUp() {
-    if (!drawingEnabled) return;
-    isDrawing = false;
-    // Optional: Reset composite operation if needed, though setting it on mousedown is usually sufficient
-    // if (currentTool === 'eraser') {
-    //     context.globalCompositeOperation = 'source-over';
-    // }
-}
-
-function handleMouseOut() {
-    if (!drawingEnabled) return;
-    isDrawing = false; // Stop drawing if mouse leaves canvas
-}
-
-// --- Touch Event Handlers ---
-function handleTouchStart(e) {
-    if (!drawingEnabled) return;
-    isDrawing = true;
-    [lastX, lastY] = getEventCoords(e);
-
-    // Apply tool settings (same as mousedown)
     if (currentTool === 'eraser') {
         context.globalCompositeOperation = 'destination-out';
     } else {
@@ -247,18 +195,57 @@ function handleTouchStart(e) {
     }
     context.lineWidth = currentLineWidth;
 
-    // Optional: Draw initial point
-    // drawLocalLine(lastX, lastY, lastX, lastY);
+    // Optional: Draw a single point on mousedown
+    // context.beginPath();
+    // context.arc(lastX, lastY, currentLineWidth / 2, 0, Math.PI * 2);
+    // context.fillStyle = currentTool === 'eraser' ? CANVAS_BACKGROUND_COLOR : currentStrokeStyle; // Use fill for point
+    // context.fill();
+    // emitDrawData(lastX, lastY, lastX, lastY); // Emit if drawing point
+}
+
+function handleMouseMove(e) {
+    if (!isDrawing || !drawingEnabled) return;
+    const [currentX, currentY] = getEventCoords(e);
+    drawLocalLine(lastX, lastY, currentX, currentY);
+    emitDrawData(lastX, lastY, currentX, currentY);
+    [lastX, lastY] = [currentX, currentY];
+}
+
+function handleMouseUp() {
+    if (!drawingEnabled) return;
+    isDrawing = false;
+}
+
+function handleMouseOut() {
+    if (!drawingEnabled) return;
+    isDrawing = false;
+}
+
+// --- Touch Event Handlers ---
+function handleTouchStart(e) {
+    if (!drawingEnabled) return;
+    isDrawing = true;
+    [lastX, lastY] = getEventCoords(e);
+    if (currentTool === 'eraser') {
+        context.globalCompositeOperation = 'destination-out';
+    } else {
+        context.globalCompositeOperation = 'source-over';
+        context.strokeStyle = currentStrokeStyle;
+    }
+    context.lineWidth = currentLineWidth;
+    // Optional: Draw initial point for touch
+    // context.beginPath();
+    // context.arc(lastX, lastY, currentLineWidth / 2, 0, Math.PI * 2);
+    // context.fillStyle = currentTool === 'eraser' ? CANVAS_BACKGROUND_COLOR : currentStrokeStyle;
+    // context.fill();
     // emitDrawData(lastX, lastY, lastX, lastY);
 }
 
 function handleTouchMove(e) {
     if (!isDrawing || !drawingEnabled) return;
     const [currentX, currentY] = getEventCoords(e);
-
     drawLocalLine(lastX, lastY, currentX, currentY);
     emitDrawData(lastX, lastY, currentX, currentY);
-
     [lastX, lastY] = [currentX, currentY];
 }
 
@@ -273,8 +260,8 @@ function emitDrawData(x0, y0, x1, y1) {
         detail: {
             type: 'line',
             x0: x0, y0: y0, x1: x1, y1: y1,
-            tool: currentTool, // Include current tool
-            color: currentTool === 'eraser' ? null : currentStrokeStyle, // Don't send color for eraser if using destination-out
+            tool: currentTool,
+            color: currentTool === 'eraser' ? null : currentStrokeStyle,
             size: currentLineWidth
         }
     });
@@ -284,7 +271,7 @@ function emitDrawData(x0, y0, x1, y1) {
 // Draws locally using current context settings
 function drawLocalLine(x0, y0, x1, y1) {
     if (!context) return;
-    // Settings (color, width, compositeOp) are assumed to be set correctly before calling this
+    // Settings are assumed to be set correctly before calling this
     context.beginPath();
     context.moveTo(x0, y0);
     context.lineTo(x1, y1);
