@@ -1,4 +1,5 @@
 // server/lobby.js
+// (No changes from the previous version with added logging)
 import GameManager from './gameManager.js';
 import { getRandomColor } from './utils.js';
 
@@ -16,7 +17,7 @@ class Lobby {
         this.gameManager = new GameManager(this.io, this.id);
         this.gameManager.setLobbyReference(this);
         this.lobbyChatHistory = [];
-        this.lobbyCanvasCommands = [];
+        this.lobbyCanvasCommands = []; // Stores { cmdId, playerId, type, strokeId?, data... }
         this.maxLobbyCommands = 1000;
     }
 
@@ -121,7 +122,6 @@ class Lobby {
         }
     }
 
-    // ... (isFull, isEmpty, isUsernameTaken, isUsernameTakenByOther, getHostName - unchanged) ...
     isFull() { return this.players.size >= this.maxPlayers; }
     isEmpty() { return this.players.size === 0; }
     isUsernameTaken(username) { return Array.from(this.players.values()).some(p => p.name.toLowerCase() === username.toLowerCase()); }
@@ -136,7 +136,6 @@ class Lobby {
 
 
     // --- Broadcasting & State ---
-    // ... (sendLobbyState, broadcastLobbyPlayerList, broadcastSystemMessage - unchanged) ...
     sendLobbyState(socket) {
         const state = {
             lobbyId: this.id,
@@ -163,7 +162,6 @@ class Lobby {
 
 
     // --- Event Handling ---
-    // ... (registerSocketEvents, handleLobbyChatMessage, handleLobbyDraw, handleUndoLastDraw, handleStartGameRequest, etc. - unchanged from previous correct version) ...
     registerSocketEvents(socket) {
          console.log(`Registering lobby/game events for ${socket.id} in lobby ${this.id}`);
          socket.removeAllListeners('lobby chat message');
