@@ -223,14 +223,18 @@ class Lobby {
                     typeof drawCommand.x1 === 'number' &&
                     typeof drawCommand.y1 === 'number' &&
                     typeof drawCommand.size === 'number' &&
+                    // color can be null if eraser
+                    (typeof drawCommand.color === 'string' || drawCommand.color === null) &&
                     typeof drawCommand.strokeId === 'string';
                 break;
+
             case 'fill':
                 isValid =
                     typeof drawCommand.x === 'number' &&
                     typeof drawCommand.y === 'number' &&
                     typeof drawCommand.color === 'string';
                 break;
+
             case 'rect':
                 isValid =
                     typeof drawCommand.x0 === 'number' &&
@@ -240,16 +244,19 @@ class Lobby {
                     typeof drawCommand.color === 'string' &&
                     typeof drawCommand.size === 'number';
                 break;
+
             case 'ellipse':
+                // same style as rect, but user is sending x0,y0,x1,y1
                 isValid =
-                    typeof drawCommand.cx === 'number' &&
-                    typeof drawCommand.cy === 'number' &&
-                    typeof drawCommand.rx === 'number' &&
-                    typeof drawCommand.ry === 'number' &&
+                    typeof drawCommand.x0 === 'number' &&
+                    typeof drawCommand.y0 === 'number' &&
+                    typeof drawCommand.x1 === 'number' &&
+                    typeof drawCommand.y1 === 'number' &&
                     typeof drawCommand.color === 'string' &&
                     typeof drawCommand.size === 'number';
                 break;
-            case 'text': // [CHANGED] Validate text command
+
+            case 'text':
                 isValid =
                     typeof drawCommand.x === 'number' &&
                     typeof drawCommand.y === 'number' &&
@@ -257,11 +264,15 @@ class Lobby {
                     typeof drawCommand.color === 'string' &&
                     typeof drawCommand.size === 'number';
                 break;
+
             case 'clear':
                 isValid = true;
                 break;
+
             default:
                 console.warn(`Lobby ${this.id}: unknown draw type: ${drawCommand.type}`);
+                isValid = false;
+                break;
         }
         if (!isValid) {
             console.warn(`Lobby ${this.id}: invalid data for type=${drawCommand.type} from ${socket.id}`, drawCommand);
