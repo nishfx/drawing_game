@@ -1,4 +1,3 @@
-<!-- public/lobby.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,23 +22,24 @@
         </div>
 
         <!-- Canvas Area and Tools -->
-        <!-- Ensure this container has position: relative if not already set by CSS -->
         <div id="lobby-canvas-area" style="position: relative;">
             <canvas id="lobby-canvas" width="600" height="450"></canvas>
             <!-- Overlay canvas is inserted here by JS -->
+
             <div id="lobby-drawing-tools">
-                <!-- Tool Buttons -->
+                <!-- Existing tool buttons -->
                 <button class="tool-button active" data-tool="pencil" title="Pencil">✏️</button>
                 <button class="tool-button" data-tool="eraser" title="Eraser">🧼</button>
                 <button class="tool-button" data-tool="fill" title="Fill">💧</button>
                 <button class="tool-button" data-tool="rectangle" title="Rectangle Tool">□</button>
                 <button class="tool-button" data-tool="ellipse" title="Ellipse Tool">○</button>
 
-                <!-- Color Picker -->
-                <input type="color" id="color-picker" value="#000000" title="Color Picker">
+                <!-- NEW Text Button -->
+                <button class="tool-button" data-tool="text" title="Text Tool">T</button>
 
-                <!-- Line Width Selector -->
-                 <select id="line-width-selector" title="Line Width">
+                <!-- Color Picker, Line Width, etc. -->
+                <input type="color" id="color-picker" value="#000000" title="Color Picker">
+                <select id="line-width-selector" title="Line Width">
                     <option value="2">2px</option>
                     <option value="5" selected>5px</option>
                     <option value="10">10px</option>
@@ -60,19 +60,16 @@
                 <input id="chat-input" autocomplete="off" placeholder="Lobby chat..." />
                 <button type="button" id="emoji-btn" title="Emoji">😊</button>
                 <button type="submit" id="send-btn">Send</button>
-                <div id="emoji-picker">
-                    <!-- Emojis will be populated by JS -->
-                </div>
+                <div id="emoji-picker"></div>
             </form>
         </div>
     </div>
 
-    <!-- Start Game Button Area -->
     <div id="lobby-controls">
         <button id="start-game-btn" style="display: none;">Start Game</button>
     </div>
 
-    <!-- Add /game prefix -->
+    <!-- Scripts -->
     <script src="/game/socket.io/socket.io.js"></script>
     <script src="/game/js/lobbyClient.js" type="module"></script>
 </body>

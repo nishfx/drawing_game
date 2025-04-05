@@ -142,14 +142,31 @@ body {
 
 
 /* Chat area container */
+/* Fix the chat area's size and scrolling */
 #chat-area {
-    display: flex; flex-direction: column; width: 300px;
-    border: 1px solid #dee2e6; box-sizing: border-box;
-    background-color: #fff; border-radius: 4px;
+    display: flex;           /* So we can flex the messages area vs. the input */
+    flex-direction: column;
+    width: 300px;
+    height: 250px;           /* <--- Fixed chat height */
+    border: 1px solid #dee2e6;
+    box-sizing: border-box;
+    background-color: #fff;
+    border-radius: 4px;
     flex-shrink: 0;
+    /* no overflow here; we let #messages handle that */
 }
 
-#messages { list-style-type: none; padding: 0; margin: 0; flex-grow: 1; min-height: 0; overflow-y: auto; padding: 8px 10px; background-color: #f8f9fa; font-size: 0.9em; border-bottom: 1px solid #dee2e6; }
+#messages {
+    list-style-type: none;
+    padding: 8px 10px;
+    margin: 0;
+    flex-grow: 1;            /* Fill remaining vertical space */
+    min-height: 0;           /* So flex can shrink properly */
+    overflow-y: auto;        /* <--- Scrollbar if messages overflow */
+    background-color: #f8f9fa;
+    font-size: 0.9em;
+    border-bottom: 1px solid #dee2e6;
+}
 #messages li { padding: 4px 0; word-wrap: break-word; }
 #messages li[style*="italic"] { color: #6c757d; } /* System messages */
 #messages li.correct-guess { font-weight: bold; color: #155724; background-color: #d4edda; padding: 5px 8px; border-radius: 3px; margin: 2px 0; border-left: 3px solid #28a745; }
