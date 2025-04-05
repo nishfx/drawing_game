@@ -38,7 +38,7 @@ export async function interpretImage(base64ImageData) {
                     {
                         role: "user",
                         content: [
-                            { type: "text", text: "Describe this drawing in German in one simple sentence in a disgusting way. Use irony and sarcasm and dark humour when possible, and make fun of the image. The sentence should be at max 18 words long." },
+                            { type: "text", text: "Make fun of this drawing in German in one simple sentence. You can be really harsh as this is part of a game. Use irony and sarcasm and dark humour when possible. The sentence should be at max 20 words long." },
                             {
                                 type: "image_url",
                                 image_url: {
