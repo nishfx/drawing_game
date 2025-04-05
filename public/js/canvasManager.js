@@ -182,7 +182,7 @@ export function setColor(color) {
     if (context) context.strokeStyle = currentStrokeStyle;
     if (overlayCtx) overlayCtx.strokeStyle = currentStrokeStyle;
     console.log("Color set to:", currentStrokeStyle);
-    if (isMouseOverCanvas && (currentTool === 'pencil' || currentTool === 'eraser')) {
+    if (isMouseOverCanvas && (currentTool === 'pencil' || currentTool === 'eraser' || currentTool === 'fill')) {
         updateCursorPreview(currentMouseX, currentMouseY);
     }
 }
@@ -192,7 +192,7 @@ export function setLineWidth(width) {
     if (context) context.lineWidth = currentLineWidth;
     if (overlayCtx) overlayCtx.lineWidth = currentLineWidth;
     console.log("Line width set to:", currentLineWidth);
-    if (isMouseOverCanvas && (currentTool === 'pencil' || currentTool === 'eraser')) {
+    if (isMouseOverCanvas && (currentTool === 'pencil' || currentTool === 'eraser' || currentTool === 'fill')) {
         updateCursorPreview(currentMouseX, currentMouseY);
     }
 }
@@ -482,11 +482,12 @@ function setCursorForTool(tool) {
     let cursorStyle = 'crosshair';
     switch (tool) {
         case 'eraser':
-            // Basic example icon
             cursorStyle = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect x="5" y="5" width="10" height="10" fill="white" stroke="black"/></svg>') 10 10, auto`;
             break;
         case 'fill':
-            cursorStyle = 'copy';
+            // Example paint-can SVG; shift hotspot ~center
+            cursorStyle = `url("data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjMDAwMDAwIiB2aWV3Qm94PSIwIDAgMjQgMjQiIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgeG1sbm...") 12 12, auto`;
+            // (Truncated base64 - replace with your own!)
             break;
         case 'rectangle':
         case 'ellipse':
@@ -495,11 +496,19 @@ function setCursorForTool(tool) {
             cursorStyle = 'crosshair';
             break;
     }
+    canvas.style.cursor = cursorStyle;
 }
 
+/**
+ * We show a circle preview for pencil, eraser, AND fill now.
+ */
 function setCursorStyle() {
     if (!canvas) return;
-    const showPreview = isMouseOverCanvas && !isDrawing && (currentTool === 'pencil' || currentTool === 'eraser');
+    const showPreview = isMouseOverCanvas && !isDrawing && (
+        currentTool === 'pencil' ||
+        currentTool === 'eraser' ||
+        currentTool === 'fill'
+    );
 
     if (showPreview || isDrawing) {
         canvas.style.cursor = 'none';
@@ -528,22 +537,27 @@ function drawCursorPreview(x, y) {
     }
     clearOverlay();
 
+    // We use the same radius as lineWidth for the circle
     const radius = currentLineWidth / 2;
     overlayCtx.beginPath();
     overlayCtx.arc(x, y, Math.max(1, radius), 0, Math.PI * 2);
-    overlayCtx.strokeStyle = currentTool === 'eraser' ? '#555555' : currentStrokeStyle;
+    overlayCtx.strokeStyle = (currentTool === 'eraser') ? '#555555' : currentStrokeStyle;
     overlayCtx.lineWidth = 1;
     overlayCtx.stroke();
     overlayCtx.closePath();
 
-    overlayCtx.lineWidth = currentLineWidth; // restore
+    overlayCtx.lineWidth = currentLineWidth;
     overlayCtx.strokeStyle = currentStrokeStyle;
 }
 
 function updateCursorPreview(x, y) {
     if (!isMouseOverCanvas || isDrawing) {
         clearOverlay();
-    } else if (currentTool === 'pencil' || currentTool === 'eraser') {
+    } else if (
+        currentTool === 'pencil' ||
+        currentTool === 'eraser' ||
+        currentTool === 'fill'
+    ) {
         drawCursorPreview(x, y);
     } else {
         clearOverlay();
@@ -729,11 +743,9 @@ function handleMouseUp(e) {
         if (wasDrawing) {
             // If we never moved, create a tiny stroke to form a dot
             if (x === lastX && y === lastY) {
-                // draw a minuscule line for a dot
                 drawLocalSegment(x, y, x + 0.01, y + 0.01);
                 emitDrawSegment(x, y, x + 0.01, y + 0.01);
             } else {
-                // else finalize the last line segment
                 if (x !== lastX || y !== lastY) {
                     drawLocalSegment(lastX, lastY, x, y);
                     emitDrawSegment(lastX, lastY, x, y);
