@@ -23,16 +23,17 @@
         </div>
 
         <!-- Canvas Area and Tools -->
-        <div id="lobby-canvas-area"> {/* Ensure this container has position: relative if not already */}
+        <!-- Ensure this container has position: relative if not already set by CSS -->
+        <div id="lobby-canvas-area" style="position: relative;">
             <canvas id="lobby-canvas" width="600" height="450"></canvas>
-            {/* Overlay canvas is inserted here by JS */}
+            <!-- Overlay canvas is inserted here by JS -->
             <div id="lobby-drawing-tools">
                 <!-- Tool Buttons -->
                 <button class="tool-button active" data-tool="pencil" title="Pencil">✏️</button>
                 <button class="tool-button" data-tool="eraser" title="Eraser">🧼</button>
                 <button class="tool-button" data-tool="fill" title="Fill">💧</button>
                 <button class="tool-button" data-tool="rectangle" title="Rectangle Tool">□</button>
-                <button class="tool-button" data-tool="ellipse" title="Ellipse Tool">○</button> {/* Removed comment */}
+                <button class="tool-button" data-tool="ellipse" title="Ellipse Tool">○</button>
 
                 <!-- Color Picker -->
                 <input type="color" id="color-picker" value="#000000" title="Color Picker">
