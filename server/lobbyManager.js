@@ -31,7 +31,6 @@ class LobbyManager {
         const added = newLobby.addPlayer(hostSocket, username, true);
         if (added) {
             hostSocket.emit('lobby created', { lobbyId });
-            // Delay join message slightly to ensure client is ready
             setTimeout(() => newLobby.broadcastSystemMessage(`${username} has joined the lobby.`), 100);
         }
         else {
@@ -47,7 +46,7 @@ class LobbyManager {
         if (!lobby) { playerSocket.emit('join failed', 'Not found.'); return; }
         if (!this.isValidUsername(username)) { playerSocket.emit('join failed', 'Invalid username.'); return; }
         if (lobby.isFull()) { playerSocket.emit('join failed', 'Full.'); return; }
-        // *** Check username taken BEFORE adding ***
+        // Check username taken BEFORE adding
         if (lobby.isUsernameTakenByOther(username, playerSocket.id)) {
              playerSocket.emit('join failed', 'Username taken.');
              return;
@@ -56,11 +55,9 @@ class LobbyManager {
         const added = lobby.addPlayer(playerSocket, username, lobby.players.size === 0);
         if (added) {
             playerSocket.emit('join success', { lobbyId });
-            // Delay join message slightly
             setTimeout(() => lobby.broadcastSystemMessage(`${username} has joined the lobby.`), 100);
         }
         else {
-            // If addPlayer failed after checks, it's likely an internal issue
             console.error(`Failed add player ${username} to ${lobbyId} unexpectedly.`);
             playerSocket.emit('join failed', 'Server error during join.');
         }
@@ -79,75 +76,82 @@ class LobbyManager {
              socket.disconnect(true); return;
         }
 
-        // Find if player with this username already exists (maybe disconnected briefly)
+        // Find if player with this username already exists
         let existingPlayer = null;
         let oldSocketId = null;
         for (const [id, player] of lobby.players.entries()) {
             if (player.name === username) {
                 existingPlayer = player;
-                oldSocketId = id; // Store the old socket ID if found
+                oldSocketId = id;
                 break;
             }
         }
 
         if (existingPlayer) {
-            // Player found, likely a reconnect
+            // *** CRITICAL CHANGE: Always treat finding player by username as a reconnect ***
+            // If the username matches, assume it's the same user reconnecting,
+            // regardless of whether the old socket ID matches the new one or if the
+            // old socket has fully disconnected on the server yet.
+
+            console.log(`Player ${username} attempting to rejoin/refresh lobby ${lobbyId}. Found existing entry with socket ${oldSocketId}. New socket is ${socket.id}.`);
+
+            // Remove the old entry *unconditionally* if the socket ID is different.
+            // If the socket ID is the same, we don't need to remove/re-add, just update the socket ref.
             if (oldSocketId !== socket.id) {
-                console.log(`Player ${username} reconnected with new socket ${socket.id} in lobby ${lobbyId}. Updating references.`);
-                // *** Explicitly remove old entry BEFORE adding new one ***
-                lobby.players.delete(oldSocketId);
+                 console.log(`Removing old socket entry ${oldSocketId} for ${username}.`);
+                 lobby.players.delete(oldSocketId); // Remove old mapping
 
-                // Update the existing player data object with new socket details
-                existingPlayer.id = socket.id;
-                existingPlayer.socket = socket;
+                 // Update the player data object with the new socket details
+                 existingPlayer.id = socket.id;
+                 existingPlayer.socket = socket; // Update the socket reference
 
-                // Re-add the updated player data with the NEW socket ID
-                lobby.players.set(socket.id, existingPlayer);
-
-                // Re-join the Socket.IO room
-                socket.join(lobby.id);
-
-                // Re-register listeners for the new socket
-                if (typeof lobby.registerSocketEvents === 'function') {
-                     lobby.registerSocketEvents(socket);
-                } else {
-                     console.error(`Lobby ${lobbyId} missing registerSocketEvents method!`);
-                }
-                // Send current state to ensure sync
-                lobby.sendLobbyState(socket); // Send lobby state first
-                lobby.gameManager.broadcastGameState(); // Then send game state
-                // Update player list for everyone
-                lobby.broadcastLobbyPlayerList();
-                lobby.broadcastSystemMessage(`${username} has reconnected.`);
+                 // Add the player back with the NEW socket ID
+                 lobby.players.set(socket.id, existingPlayer);
+                 console.log(`Re-added ${username} with new socket ID ${socket.id}.`);
             } else {
-                 // Same socket ID, maybe just a refresh? Ensure they are in the room.
-                 socket.join(lobby.id);
-                 console.log(`Player ${username} (${socket.id}) confirmed in lobby ${lobbyId} room.`);
-                 // Send state again just in case
-                 lobby.sendLobbyState(socket);
-                 lobby.gameManager.broadcastGameState();
+                 console.log(`Socket ID ${socket.id} is the same. Updating socket reference just in case.`);
+                 existingPlayer.socket = socket; // Ensure socket reference is current
             }
+
+
+            // Ensure the socket is in the room
+            socket.join(lobby.id);
+
+            // Re-register listeners
+            if (typeof lobby.registerSocketEvents === 'function') {
+                 lobby.registerSocketEvents(socket);
+            } else {
+                 console.error(`Lobby ${lobbyId} missing registerSocketEvents method!`);
+            }
+
+            // Send state
+            lobby.sendLobbyState(socket);
+            lobby.gameManager.broadcastGameState();
+
+            // Update list for others (might show the user briefly disappear/reappear if disconnect was processed)
+            lobby.broadcastLobbyPlayerList();
+            // Optionally send a reconnect message if the socket ID changed
+            if (oldSocketId !== socket.id) {
+                lobby.broadcastSystemMessage(`${username} has reconnected.`);
+            }
+
         } else {
-            // Player with this username NOT found in the lobby currently.
-            // Treat as a fresh join attempt.
+            // Player with this username NOT found. Treat as a fresh join attempt.
             console.log(`Player ${username} not found in lobby ${lobbyId} on rejoin attempt. Treating as fresh join.`);
-            // Check standard join conditions again
+            // Check standard join conditions
              if (lobby.isFull()) {
                  socket.emit('connection rejected', 'Lobby is full.');
-                 socket.disconnect(true);
-                 return;
+                 socket.disconnect(true); return;
              }
-             // isUsernameTaken check is implicitly handled by addPlayer now
+             // isUsernameTaken check is implicitly handled by addPlayer
 
-            const added = lobby.addPlayer(socket, username, lobby.players.size === 0); // Attempt add
+            const added = lobby.addPlayer(socket, username, lobby.players.size === 0);
             if (added) {
-                 lobby.broadcastSystemMessage(`${username} has joined the game.`); // Announce join
-                 lobby.broadcastLobbyPlayerList(); // Update list
-                 // Send state after adding
-                 lobby.sendLobbyState(socket);
+                 lobby.broadcastSystemMessage(`${username} has joined the game.`);
+                 lobby.broadcastLobbyPlayerList();
+                 lobby.sendLobbyState(socket); // Send state after adding
                  lobby.gameManager.broadcastGameState();
             } else {
-                 // If add failed (e.g., lobby full after check, or other error)
                  console.warn(`Failed to add player ${username} to lobby ${lobbyId} during rejoin.`);
                  socket.emit('connection rejected', 'Failed to join lobby.');
                  socket.disconnect(true);
@@ -158,10 +162,10 @@ class LobbyManager {
     leaveLobby(socket) {
         const lobby = this.findLobbyBySocketId(socket.id);
         if (lobby) {
-            const playerName = lobby.players.get(socket.id)?.name || socket.id;
-            console.log(`Player ${playerName} (${socket.id}) leaving lobby ${lobby.id}`);
-            lobby.removePlayer(socket); // Update lobby internal state (handles leave message now)
+            // Pass the socket itself to removePlayer for logging/checks
+            lobby.removePlayer(socket);
 
+            // Check if lobby is empty *after* removal attempt
             if (lobby.isEmpty()) {
                 if (!this.recentlyCreated.has(lobby.id)) {
                     console.log(`Lobby ${lobby.id} is empty and past grace period, removing.`);
