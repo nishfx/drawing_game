@@ -46,42 +46,44 @@ body {
     max-width: 1300px;
     gap: 20px; /* Consistent gap */
     align-items: stretch; /* Make columns equal height */
-    margin-bottom: 20px;
+    margin-bottom: 10px; /* Reduced margin below main layout */
 }
 
-/* Wrapper for Player List and its Title */
-#player-list-wrapper {
+/* NEW: Column for Player List Title and Box */
+#player-list-column {
     display: flex;
     flex-direction: column;
-    width: 260px; /* Match player list area width */
-    flex-shrink: 0;
+    width: 260px; /* Set width on the column */
+    flex-shrink: 0; /* Prevent shrinking */
 }
+
 
 /* Style for moved Lobby Title */
 #lobby-title-display {
     margin-top: 0;
     margin-bottom: 5px; /* Small margin above player list box */
-    text-align: left; /* Align to the left */
-    font-size: 1.1em; /* Smaller font */
-    color: #000; /* Black font */
-    font-weight: normal; /* Normal weight */
-    padding-left: 5px; /* Slight indent */
+    text-align: left;
+    font-size: 1.1em;
+    color: #000;
+    font-weight: normal;
+    padding-left: 5px;
+    flex-shrink: 0; /* Prevent title from shrinking */
 }
 
 
 /* Player list area (bordered box) */
 #player-list-area {
-    width: 100%; /* Take full width of wrapper */
+    width: 100%; /* Take full width of column */
     border: 1px solid #ccc;
     padding: 10px;
     background-color: #fff;
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    overflow-y: auto;
+    overflow: hidden; /* Hide internal overflow, list handles its own */
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    flex-grow: 1; /* Allow box to grow */
+    flex-grow: 1; /* Allow box to fill column height */
     min-height: 0; /* Important for flex grow */
 }
 
@@ -103,7 +105,7 @@ body {
     color: #555;
 }
 
-#player-list { list-style-type: none; padding: 0; margin: 0; flex-grow: 1; overflow-y: auto; }
+#player-list { list-style-type: none; padding: 0; margin: 0; flex-grow: 1; overflow-y: auto; /* Scroll only the list */ }
 #player-list li { padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 0.95em; word-break: break-word; display: flex; align-items: center; gap: 8px; }
 #player-list li:last-child { border-bottom: none; }
 #player-list li span[style*="bold"] { font-weight: bold; background-color: #f0f8ff; }
@@ -185,8 +187,8 @@ body {
 #lobby-drawing-tools {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px; /* Slightly reduced gap for tighter packing */
-    padding: 10px; /* Reduced padding */
+    gap: 8px;
+    padding: 10px;
     background-color: #e9ecef;
     border: 1px solid #ccc;
     border-radius: 4px;
@@ -194,42 +196,11 @@ body {
     flex-shrink: 0;
     align-items: center;
 }
-.tool-button {
-    padding: 0; /* Remove padding */
-    width: 40px; /* Set fixed width */
-    height: 40px; /* Set fixed height */
-    font-size: 1.5em; /* Increase icon size */
-    border: 1px solid #adb5bd;
-    background-color: #fff;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    line-height: 40px; /* Center icon vertically */
-    text-align: center; /* Center icon horizontally */
-    display: inline-flex; /* Align items nicely */
-    align-items: center;
-    justify-content: center;
-}
+.tool-button { padding: 0; width: 40px; height: 40px; font-size: 1.5em; border: 1px solid #adb5bd; background-color: #fff; border-radius: 4px; cursor: pointer; transition: background-color 0.2s ease; line-height: 40px; text-align: center; display: inline-flex; align-items: center; justify-content: center; }
 .tool-button:hover { background-color: #f1f3f5; }
 .tool-button.active { background-color: #007bff; color: white; border-color: #0056b3; }
-
-#lobby-drawing-tools input[type="color"] {
-    height: 40px; /* Match button height */
-    width: 45px; /* Slightly wider */
-    padding: 2px;
-    border: 1px solid #adb5bd;
-    border-radius: 4px;
-    cursor: pointer;
-    vertical-align: middle;
-}
-#lobby-drawing-tools select {
-    padding: 7px 10px;
-    font-size: 0.9em;
-    border: 1px solid #adb5bd;
-    border-radius: 4px;
-    height: 40px; /* Match button height */
-    vertical-align: middle;
-}
+#lobby-drawing-tools input[type="color"] { height: 40px; width: 45px; padding: 2px; border: 1px solid #adb5bd; border-radius: 4px; cursor: pointer; vertical-align: middle; }
+#lobby-drawing-tools select { padding: 7px 10px; font-size: 0.9em; border: 1px solid #adb5bd; border-radius: 4px; height: 40px; vertical-align: middle; }
 
 
 /* Start Game Button Container */
@@ -237,7 +208,7 @@ body {
     width: 100%;
     max-width: 1300px;
     text-align: center;
-    padding: 10px 0;
+    padding: 10px 0; /* Keep padding */
 }
 #lobby-controls button#start-game-btn { padding: 12px 25px; font-size: 1.2em; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 4px; }
 #lobby-controls button#start-game-btn:hover { background-color: #218838; }
