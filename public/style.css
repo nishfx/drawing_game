@@ -63,13 +63,13 @@ body {
     flex-direction: column;
     flex-shrink: 0; /* Prevent shrinking */
     position: relative; /* Needed for absolute positioning of title */
-    padding-top: 30px; /* Adjusted space for the title inside */
+    padding-top: 35px; /* Increased space for the title inside */
 }
 
 /* Style for Lobby Title (Positioned inside the top padding) */
 #lobby-title-display {
     position: absolute; /* Position relative to player-list-area */
-    top: 6px; /* Adjust vertical position */
+    top: 8px; /* Adjusted vertical position */
     left: 10px; /* Align with padding */
     right: 10px; /* Stretch to other side padding */
     margin: 0; /* Reset margins */
@@ -77,6 +77,9 @@ body {
     font-size: 0.9em; /* Smaller font */
     color: purple; /* Purple color */
     font-weight: bold; /* Bold text */
+    white-space: nowrap; /* Prevent wrapping */
+    overflow: hidden; /* Hide overflow */
+    text-overflow: ellipsis; /* Add ellipsis if too long */
 }
 
 

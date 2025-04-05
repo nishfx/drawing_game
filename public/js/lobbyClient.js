@@ -22,14 +22,15 @@ const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const lobbyCanvas = document.getElementById('lobby-canvas');
 const playerListElement = document.getElementById('player-list');
-const playerCountDisplay = document.getElementById('player-count-display'); // Added
+const playerCountDisplay = document.getElementById('player-count-display');
 const emojiBtn = document.getElementById('emoji-btn');
 const emojiPicker = document.getElementById('emoji-picker');
 const drawingToolsContainer = document.getElementById('lobby-drawing-tools');
 const clearCanvasBtn = document.getElementById('clear-canvas-btn');
 const colorPicker = document.getElementById('color-picker');
 const lineWidthSelector = document.getElementById('line-width-selector');
-const statusDisplay = document.getElementById('status'); // Ref to the connection status span
+const statusDisplay = document.getElementById('status');
+const lobbyTitleDisplay = document.getElementById('lobby-title-display'); // Added
 
 // --- Initial Setup ---
 function initializeLobby() {
@@ -63,7 +64,7 @@ function setupSocketConnection(lobbyId, username) {
 
     socket.on('connect', () => {
         console.log('Connected to server!', socket.id);
-        if (statusDisplay) { // Update connection status text
+        if (statusDisplay) {
              statusDisplay.textContent = 'Connected';
              statusDisplay.style.color = 'green';
         }
@@ -75,20 +76,21 @@ function setupSocketConnection(lobbyId, username) {
 
     socket.on('disconnect', (reason) => {
         console.log(`Disconnected from server. Reason: ${reason}`);
-        if (statusDisplay) { // Update connection status text
+        if (statusDisplay) {
              statusDisplay.textContent = 'Disconnected';
              statusDisplay.style.color = 'red';
         }
         if(lobbyStatus) lobbyStatus.textContent = "Disconnected. Please refresh.";
         if(startGameBtn) startGameBtn.style.display = 'none';
-        if(playerCountDisplay) playerCountDisplay.textContent = '(0/?)'; // Reset count display
+        if(playerCountDisplay) playerCountDisplay.textContent = '(0/?)';
+        if(lobbyTitleDisplay) lobbyTitleDisplay.textContent = "Lobby"; // Reset title
         CanvasManager.disableDrawing();
         hasJoined = false; myPlayerId = null; isHost = false;
     });
 
     socket.on('connect_error', (err) => {
         console.error("Lobby connection Error:", err);
-         if (statusDisplay) { // Update connection status text
+         if (statusDisplay) {
              statusDisplay.textContent = 'Connection Failed';
              statusDisplay.style.color = 'red';
         }
@@ -243,7 +245,6 @@ function setupActionListeners() {
 
 // --- Updated UI Update Logic ---
 function updateLobbyUI(state) {
-    // Use state.players if provided (full update), otherwise get from DOM (partial update)
     const players = state.players || Array.from(playerListElement?.children || []).map(li => ({ id: li.dataset.playerId, name: li.textContent.split(' (')[0], isHost: li.querySelector('.host-indicator') !== null }));
     const playerCount = players.length;
 
@@ -252,14 +253,24 @@ function updateLobbyUI(state) {
         playerCountDisplay.textContent = `(${playerCount}/${MAX_PLAYERS})`;
     }
 
-    // Update Lobby Status Text (Simplified)
+    // Update Lobby Title
+    if (lobbyTitleDisplay) {
+        const host = players.find(p => p.isHost);
+        const hostName = host ? host.name : null;
+        lobbyTitleDisplay.textContent = hostName ? `${hostName}'s Lobby` : "Lobby";
+        // Add title attribute for full name if truncated
+        lobbyTitleDisplay.title = lobbyTitleDisplay.textContent;
+    }
+
+
+    // Update Lobby Status Text
     if (lobbyStatus) {
         if (playerCount < minPlayersToStart) {
             lobbyStatus.textContent = `Waiting for more players...`;
         } else {
-            const host = players.find(p => p.isHost);
+            const host = players.find(p => p.isHost); // Find host again (could be simplified)
             const hostName = host ? host.name : '...';
-            lobbyStatus.textContent = isHost ? `Waiting for players` : `Waiting for host (${hostName})...`;
+            lobbyStatus.textContent = isHost ? `Ready when you are!` : `Waiting for host (${hostName})...`;
         }
     }
 
