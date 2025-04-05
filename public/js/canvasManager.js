@@ -27,13 +27,14 @@ export function initCanvas(canvasId) {
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('mouseout', handleMouseOut);
+    // Use passive: false for touch events to allow preventDefault if needed
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd);
     canvas.addEventListener('touchcancel', handleTouchEnd);
 
     console.log(`Canvas "${canvasId}" initialized`);
-    clearCanvas(); // Clear on init
+    clearCanvas(false); // Clear on init, don't emit event initially
     disableDrawing(); // Start disabled by default
     return true; // Indicate success
 }
@@ -53,12 +54,20 @@ export function disableDrawing() {
     console.log("Drawing disabled");
 }
 
-export function clearCanvas() {
+// Modified clearCanvas to optionally emit an event
+export function clearCanvas(emitEvent = true) {
     if (!context || !canvas) return;
     context.fillStyle = "#FFFFFF"; // Set fill color to white
     context.fillRect(0, 0, canvas.width, canvas.height); // Fill the canvas
     console.log("Canvas cleared");
+    // Emit clear event if needed for lobby canvas synchronization
+    if (emitEvent) {
+        const clearEvent = new CustomEvent('lobbyDraw', { detail: { type: 'clear' } });
+        canvas.dispatchEvent(clearEvent);
+        console.log("Dispatched clear event");
+    }
 }
+
 
 export function getDrawingDataURL() {
     if (!canvas) return null;
@@ -71,7 +80,6 @@ export function getDrawingDataURL() {
 }
 
 // --- Function to draw commands received from others ---
-// *** THIS IS THE SINGLE CORRECT DEFINITION ***
 export function drawExternalCommand(data) {
     if (!context || !data) return;
     // console.log("Drawing external command:", data); // Uncomment for debugging
@@ -83,27 +91,45 @@ export function drawExternalCommand(data) {
          drawLocalLine(data.x0, data.y0, data.x1, data.y1);
          // context.strokeStyle = oldStyle; context.lineWidth = oldWidth; // Restore if changed
     } else if (data.type === 'clear') {
-         clearCanvas();
+         console.log("Received external clear command");
+         clearCanvas(false); // Clear locally, don't re-emit
     }
     // Add more command types as needed
 }
-// *** END SINGLE CORRECT DEFINITION ***
 
 
 // --- Internal Drawing Logic ---
 
+// *** UPDATED getEventCoords function ***
 function getEventCoords(e) {
-    let x, y;
+    if (!canvas) return [0, 0]; // Should not happen if initialized
+    const rect = canvas.getBoundingClientRect(); // Get canvas position/size relative to viewport
+    let clientX, clientY;
+
     if (e.touches && e.touches.length > 0) {
-        const rect = canvas.getBoundingClientRect();
-        x = e.touches[0].clientX - rect.left;
-        y = e.touches[0].clientY - rect.top;
+        // Touch event: Use the first touch point's client coordinates
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+        // Prevent default scroll/zoom behavior on touch move within canvas
+        e.preventDefault();
     } else {
-        x = e.offsetX;
-        y = e.offsetY;
+        // Mouse event: Use the mouse's client coordinates
+        clientX = e.clientX;
+        clientY = e.clientY;
     }
+
+    // Calculate coordinates relative to the canvas element
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    // Optional: Clamp coordinates to canvas bounds if needed, though drawing outside usually just gets clipped
+    // const clampedX = Math.max(0, Math.min(x, canvas.width));
+    // const clampedY = Math.max(0, Math.min(y, canvas.height));
+    // return [clampedX, clampedY];
+
     return [x, y];
 }
+// *** END UPDATED getEventCoords function ***
 
 
 function handleMouseDown(e) {
@@ -122,7 +148,9 @@ function handleMouseMove(e) {
         detail: {
             type: 'line',
             x0: lastX, y0: lastY, x1: currentX, y1: currentY,
-            // color: currentStrokeStyle, size: currentLineWidth // Add if needed
+            // TODO: Add color and size when implemented
+            // color: currentStrokeStyle,
+            // size: currentLineWidth
         }
     });
     canvas.dispatchEvent(drawEvent);
@@ -136,6 +164,9 @@ function handleMouseUp() {
 }
 
 function handleMouseOut() {
+    // We might want to stop drawing if the mouse leaves the canvas
+    // Or continue if the button is still held (depends on desired behavior)
+    // For simplicity, let's stop drawing on mouse out.
     if (!drawingEnabled) return;
     isDrawing = false;
 }
@@ -143,20 +174,24 @@ function handleMouseOut() {
 // --- Touch Event Handlers ---
 function handleTouchStart(e) {
     if (!drawingEnabled) return;
-    e.preventDefault();
+    // e.preventDefault(); // Already called in getEventCoords for touchmove
     isDrawing = true;
     [lastX, lastY] = getEventCoords(e);
 }
 
 function handleTouchMove(e) {
     if (!isDrawing || !drawingEnabled) return;
-    e.preventDefault();
+    // e.preventDefault(); // Already called in getEventCoords
     const [currentX, currentY] = getEventCoords(e);
     drawLocalLine(lastX, lastY, currentX, currentY);
 
      // Emit drawing data for lobby/shared canvas
      const drawEvent = new CustomEvent('lobbyDraw', {
-        detail: { type: 'line', x0: lastX, y0: lastY, x1: currentX, y1: currentY }
+        detail: {
+            type: 'line',
+            x0: lastX, y0: lastY, x1: currentX, y1: currentY
+            // TODO: Add color and size when implemented
+        }
     });
     canvas.dispatchEvent(drawEvent);
 
@@ -172,6 +207,9 @@ function handleTouchEnd() {
 // Draws locally
 function drawLocalLine(x0, y0, x1, y1) {
     if (!context) return;
+    // TODO: Use currentStrokeStyle and currentLineWidth when implemented
+    context.strokeStyle = currentStrokeStyle;
+    context.lineWidth = currentLineWidth;
     context.beginPath();
     context.moveTo(x0, y0);
     context.lineTo(x1, y1);
@@ -179,4 +217,8 @@ function drawLocalLine(x0, y0, x1, y1) {
     context.closePath();
 }
 
-// --- NO DUPLICATE FUNCTIONS BELOW THIS LINE ---
+// --- TODO: Add functions for setting tool, color, width, undo ---
+// export function setTool(toolName) { ... }
+// export function setColor(color) { currentStrokeStyle = color; }
+// export function setLineWidth(width) { currentLineWidth = width; }
+// export function undo() { ... }

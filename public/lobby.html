@@ -7,23 +7,17 @@
     <!-- Add /game prefix back -->
     <link rel="stylesheet" href="/game/style.css">
     <!-- Styles specific to the lobby page -->
-    <!-- ... (styles remain the same) ... -->
-    <style>
-        /* Lobby specific styles */
-        #main-layout { max-width: 1200px; }
-        #lobby-canvas-area { flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 15px; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; margin: 0 15px; }
-        #lobby-canvas { border: 1px solid #ccc; background-color: #fff; margin-bottom: 10px; touch-action: none; max-width: 100%; }
-        #lobby-controls button { margin-top: 10px; padding: 10px 20px; font-size: 1.1em; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 4px; }
-        #lobby-controls button:hover { background-color: #218838; }
-        #lobby-controls button:disabled { background-color: #aaa; cursor: not-allowed; }
-        #player-list-area h2 { margin-bottom: 15px; }
-        /* Player list li styles moved to main style.css */
-    </style>
+    <!-- (Inline styles removed as they are now in style.css) -->
 </head>
 <body>
-    <h1>Lobby <span id="lobby-id-display" style="font-size: 0.7em; color: #555;"></span></h1>
-    <p>Status: <span id="status">Connecting...</span></p>
-    <p id="lobby-status">Waiting for players...</p>
+    <!-- New Header Area -->
+    <div id="header-area">
+        <div id="logo-placeholder">Your Logo Here</div>
+        <h1>Lobby</h1>
+        <p>Status: <span id="status">Connecting...</span></p> <!-- Moved Status -->
+        <p id="lobby-status">Waiting for players...</p>
+        <!-- Removed Lobby ID Display -->
+    </div>
 
     <div id="main-layout">
         <div id="player-list-area">
@@ -33,6 +27,22 @@
 
         <div id="lobby-canvas-area">
             <canvas id="lobby-canvas" width="600" height="450"></canvas>
+            <!-- New Drawing Tools Area -->
+            <div id="lobby-drawing-tools">
+                <button class="tool-button active" data-tool="pencil" title="Pencil">✏️</button>
+                <button class="tool-button" data-tool="eraser" title="Eraser">🧼</button>
+                <button class="tool-button" data-tool="fill" title="Fill (Not Implemented)">💧</button>
+                <button class="tool-button" data-tool="shapes" title="Shapes (Not Implemented)">□</button>
+                <input type="color" id="color-picker" value="#000000" title="Color Picker">
+                 <select id="line-width-selector" title="Line Width">
+                    <option value="2">2px</option>
+                    <option value="5" selected>5px</option>
+                    <option value="10">10px</option>
+                    <option value="15">15px</option>
+                </select>
+                <button class="tool-button" id="undo-btn" title="Undo (Not Implemented)">↩️</button>
+                <button class="tool-button" id="clear-canvas-btn" title="Clear Canvas">🗑️</button>
+            </div>
             <div id="lobby-controls">
                 <button id="start-game-btn" style="display: none;">Start Game</button>
             </div>
@@ -41,7 +51,13 @@
         <div id="chat-area">
             <ul id="messages"></ul>
             <form id="chat-form" action="">
-                <input id="chat-input" autocomplete="off" placeholder="Lobby chat..." /><button type="submit">Send</button>
+                <input id="chat-input" autocomplete="off" placeholder="Lobby chat..." />
+                <!-- Emoji Button and Picker -->
+                <button type="button" id="emoji-btn" title="Emoji">😊</button>
+                <button type="submit" id="send-btn">Send</button>
+                <div id="emoji-picker">
+                    <!-- Emojis will be populated by JS -->
+                </div>
             </form>
         </div>
     </div>

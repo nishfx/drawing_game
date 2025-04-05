@@ -3,7 +3,9 @@ import GameManager from './gameManager.js';
 import { getRandomColor } from './utils.js';
 
 const MAX_PLAYERS_PER_LOBBY = 4;
-const MIN_PLAYERS_TO_START = 2;
+// --- TESTING: Allow starting with 1 player ---
+const MIN_PLAYERS_TO_START = 1; // Original value was 2
+// --- END TESTING ---
 
 class Lobby {
     constructor(id, io, lobbyManager) {
@@ -82,10 +84,12 @@ class Lobby {
             console.log(`Lobby ${this.id} became empty.`);
         }
 
+        // --- TESTING: Check against the modified MIN_PLAYERS_TO_START ---
         if (this.gameManager.gamePhase !== 'LOBBY' && this.players.size < MIN_PLAYERS_TO_START && this.players.size > 0) {
-             console.log(`Lobby ${this.id}: Not enough players, stopping game.`);
+             console.log(`Lobby ${this.id}: Not enough players (${this.players.size}/${MIN_PLAYERS_TO_START}), stopping game.`);
              this.gameManager.goToLobby();
         }
+        // --- END TESTING ---
     }
 
     isFull() { return this.players.size >= this.maxPlayers; }
@@ -102,7 +106,9 @@ class Lobby {
             hostId: this.hostId,
             chatHistory: this.lobbyChatHistory,
             canvasCommands: this.lobbyCanvasCommands,
-            gamePhase: this.gameManager.gamePhase
+            gamePhase: this.gameManager.gamePhase,
+            // Send min players needed so UI can reflect the testing change if desired
+            minPlayers: MIN_PLAYERS_TO_START
         };
         socket.emit('lobby state', state);
     }
@@ -114,7 +120,10 @@ class Lobby {
 
      broadcastSystemMessage(message) {
         const msgData = { text: message };
-        this.io.to(this.id).emit('lobby chat message', msgData);
+        // Add system messages to chat history as well? Optional.
+        // this.lobbyChatHistory.push(msgData);
+        // if (this.lobbyChatHistory.length > 50) { this.lobbyChatHistory.shift(); }
+        this.io.to(this.id).emit('lobby chat message', msgData); // Use lobby chat message for system messages too
     }
 
     // --- Event Handling ---
@@ -148,23 +157,44 @@ class Lobby {
 
     handleLobbyDraw(socket, drawData) {
         if (!this.players.has(socket.id) || !drawData) return;
+        // Basic validation for draw data type
         if (drawData.type === 'line' && typeof drawData.x0 === 'number') {
             this.lobbyCanvasCommands.push(drawData);
             if (this.lobbyCanvasCommands.length > this.maxLobbyCommands) { this.lobbyCanvasCommands.shift(); }
+            // Broadcast to others in the lobby
             socket.to(this.id).emit('lobby draw update', drawData);
-        } else { console.warn(`Lobby ${this.id}: Invalid lobby draw data from ${socket.id}:`, drawData); }
+        } else if (drawData.type === 'clear') {
+            console.log(`Lobby ${this.id}: Clearing canvas commands.`);
+            this.lobbyCanvasCommands = []; // Clear history on clear command
+            socket.to(this.id).emit('lobby draw update', drawData); // Broadcast clear
+        } else {
+            console.warn(`Lobby ${this.id}: Invalid lobby draw data from ${socket.id}:`, drawData);
+        }
     }
+
 
     handleStartGameRequest(socket) {
         if (socket.id !== this.hostId) { socket.emit('system message', 'Only host can start.'); return; }
-        if (this.players.size < MIN_PLAYERS_TO_START) { socket.emit('system message', `Need ${MIN_PLAYERS_TO_START} players.`); return; }
+        // --- TESTING: Check against the modified MIN_PLAYERS_TO_START ---
+        if (this.players.size < MIN_PLAYERS_TO_START) {
+            socket.emit('system message', `Need ${MIN_PLAYERS_TO_START} player(s) to start (currently ${this.players.size}).`);
+            return;
+        }
+        // --- END TESTING ---
         if (this.gameManager.gamePhase !== 'LOBBY') { socket.emit('system message', `Game already running.`); return; }
         console.log(`Host ${this.players.get(socket.id)?.name} starting game in lobby ${this.id}`);
         this.gameManager.startGame();
     }
 
     getPlayerCount() { return this.players.size; }
-    attemptAutoStartGame() { if (this.gameManager.gamePhase === 'LOBBY' && this.players.size >= MIN_PLAYERS_TO_START) { console.log(`Lobby ${this.id}: Auto-starting game.`); this.gameManager.startGame(); } }
+    attemptAutoStartGame() {
+        // --- TESTING: Check against the modified MIN_PLAYERS_TO_START ---
+        if (this.gameManager.gamePhase === 'LOBBY' && this.players.size >= MIN_PLAYERS_TO_START) {
+            console.log(`Lobby ${this.id}: Auto-starting game.`);
+            this.gameManager.startGame();
+        }
+        // --- END TESTING ---
+    }
 }
 
 export default Lobby;
