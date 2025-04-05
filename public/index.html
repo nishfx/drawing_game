@@ -7,7 +7,7 @@
     <!-- Add /game prefix back -->
     <link rel="stylesheet" href="/game/style.css">
     <!-- Styles specific to the start page -->
-    <!-- ... (styles remain the same) ... -->
+    <!-- (Inline styles removed as they are now in style.css) -->
     <style>
         /* Styles specific to the start page */
         body { justify-content: center; align-items: center; min-height: 100vh; }
@@ -51,75 +51,7 @@
     <div class="start-container">
         <h1>Drawing Game</h1>
         <form id="username-form">
-            <label for="username">Enter your username:</label><!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lobby - Drawing Game</title>
-    <link rel="stylesheet" href="/game/style.css">
-</head>
-<body>
-    <!-- Header Area -->
-    <div id="header-area">
-        <img src="/game/images/header.jpeg" alt="Drawing Game Logo" width="444" height="250" style="display: block; margin: 0 auto 20px auto; max-width: 100%;">
-        <p id="lobby-status">Waiting for players...</p>
-    </div>
-
-    <div id="main-layout">
-        <!-- Player List Area (Title is now conceptually above this via CSS) -->
-        <div id="player-list-area">
-             <!-- Lobby Title (Logically separate but visually grouped) -->
-            <h2 id="lobby-title-display">Lobby</h2>
-            <h3>Players <span id="player-count-display">(?/?)</span></h3>
-            <ul id="player-list"></ul>
-        </div>
-
-        <!-- Canvas Area and Tools -->
-        <div id="lobby-canvas-area">
-            <canvas id="lobby-canvas" width="600" height="450"></canvas>
-            <div id="lobby-drawing-tools">
-                <button class="tool-button active" data-tool="pencil" title="Pencil">✏️</button>
-                <button class="tool-button" data-tool="eraser" title="Eraser">🧼</button>
-                <button class="tool-button" data-tool="fill" title="Fill (Not Implemented)">💧</button>
-                <button class="tool-button" data-tool="shapes" title="Shapes (Not Implemented)">□</button>
-                <input type="color" id="color-picker" value="#000000" title="Color Picker">
-                 <select id="line-width-selector" title="Line Width">
-                    <option value="2">2px</option>
-                    <option value="5" selected>5px</option>
-                    <option value="10">10px</option>
-                    <option value="15">15px</option>
-                    <option value="25">25px</option>
-                </select>
-                <button class="tool-button" id="undo-btn" title="Undo (Not Implemented)">↩️</button>
-                <button class="tool-button" id="clear-canvas-btn" title="Clear Entire Canvas">🗑️</button>
-            </div>
-        </div>
-
-        <!-- Chat Area -->
-        <div id="chat-area">
-            <ul id="messages"></ul>
-            <form id="chat-form" action="">
-                <input id="chat-input" autocomplete="off" placeholder="Lobby chat..." />
-                <button type="button" id="emoji-btn" title="Emoji">😊</button>
-                <button type="submit" id="send-btn">Send</button>
-                <div id="emoji-picker">
-                    <!-- Emojis will be populated by JS -->
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Start Game Button Area -->
-    <div id="lobby-controls">
-        <button id="start-game-btn" style="display: none;">Start Game</button>
-    </div>
-
-
-    <script src="/game/socket.io/socket.io.js"></script>
-    <script src="/game/js/lobbyClient.js" type="module"></script>
-</body>
-</html>
+            <label for="username">Enter your username:</label>
             <input type="text" id="username" name="username" required maxlength="16" pattern="[A-Za-z0-9_]+" title="Only letters, numbers, and underscores allowed.">
             <div id="error-message" class="error-message"></div>
             <div class="button-group">

@@ -14,12 +14,15 @@
     </div>
 
     <div id="main-layout">
-        <!-- Player List Area (Title is now conceptually above this via CSS) -->
-        <div id="player-list-area">
-             <!-- Lobby Title (Logically separate but visually grouped) -->
+        <!-- Player List Column (Title + Box) -->
+        <div id="player-list-column">
+            <!-- Lobby Title Moved Here -->
             <h2 id="lobby-title-display">Lobby</h2>
-            <h3>Players <span id="player-count-display">(?/?)</span></h3>
-            <ul id="player-list"></ul>
+            <!-- Player List Box -->
+            <div id="player-list-area">
+                <h3>Players <span id="player-count-display">(?/?)</span></h3>
+                <ul id="player-list"></ul>
+            </div>
         </div>
 
         <!-- Canvas Area and Tools -->
