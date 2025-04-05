@@ -133,6 +133,8 @@ body {
     touch-action: none; /* Prevent default touch actions like scroll/zoom */
     max-width: 100%;
     box-sizing: border-box; /* Ensure padding/border are included in width/height */
+    margin: 0; /* Remove default margin */
+    padding: 0; /* Remove default padding */
 }
 #ready-button { background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1em; margin-top: 10px; transition: background-color 0.2s ease; flex-shrink: 0; }
 #ready-button:hover { background-color: #218838; }
@@ -204,6 +206,8 @@ body {
     /* height: auto; Maintain aspect ratio */
     aspect-ratio: 600 / 450; /* width / height */
     /* Remove max-height or adjust as needed */
+    margin: 0; /* Explicitly remove margin */
+    padding: 0; /* Explicitly remove padding */
 }
 #lobby-drawing-tools {
     display: flex;
