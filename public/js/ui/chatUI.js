@@ -1,4 +1,3 @@
-// public/js/ui/chatUI.js
 const messagesList = document.getElementById('messages');
 let lastSystemMessageText = ''; // Track the last system message text
 let lastSystemMessageTime = 0; // Track the time of the last system message
@@ -10,7 +9,8 @@ export function addChatMessage(msgData, type = 'normal') {
     }
     const item = document.createElement('li');
     let messageText = '';
-    let isSystem = false;
+    let isSystem = type === 'system';
+    let isCorrectGuess = msgData?.isCorrectGuess || false;
     let currentUsername = null; // Store username if it's a join/leave message
 
     // Handle different message formats
@@ -22,25 +22,34 @@ export function addChatMessage(msgData, type = 'normal') {
         senderSpan.textContent = `${msgData.senderName}: `;
         item.appendChild(senderSpan);
         item.appendChild(document.createTextNode(msgData.text)); // Append text separately
-    } else if (msgData && msgData.text) {
-        // System message
+        messageText = msgData.text; // Store text for potential filtering
+    } else if (msgData && msgData.text && isSystem) {
+        // System message explicitly passed with type='system' or inferred
         messageText = msgData.text;
-        type = 'system'; // Force type
-        isSystem = true;
         item.textContent = messageText; // Set text directly
         // Extract username from join/leave messages for filtering
-        // Updated regex to be slightly more robust
-        const joinMatch = messageText.match(/^([\w_]+) has joined the lobby.$/);
-        const leaveMatch = messageText.match(/^([\w_]+) has left the lobby.$/);
-        currentUsername = joinMatch ? joinMatch[1] : (leaveMatch ? leaveMatch[1] : null);
-    } else {
-        // Fallback for unexpected data format
+        const joinMatch = messageText.match(/^([\w_]+) has joined the (lobby|game)\.$/);
+        const leaveMatch = messageText.match(/^([\w_]+) has left the (lobby|game)\.$/);
+        const reconnectMatch = messageText.match(/^([\w_]+) has reconnected\.$/);
+        currentUsername = joinMatch ? joinMatch[1] : (leaveMatch ? leaveMatch[1] : (reconnectMatch ? reconnectMatch[1] : null));
+    } else if (msgData && msgData.text) {
+        // Fallback for messages with text but no sender/type (treat as system)
+        messageText = msgData.text;
+        item.textContent = messageText;
+        isSystem = true;
+        type = 'system';
+        console.warn("Received chat message with text but no sender/type, treating as system:", msgData);
+    }
+    else {
+        // Fallback for completely unexpected data format
         messageText = JSON.stringify(msgData);
         item.textContent = messageText;
+        isSystem = true;
+        type = 'system';
         console.warn("Received unexpected chat message format:", msgData);
     }
 
-    // --- Filter duplicate/rapid join/leave system messages ---
+    // --- Filter duplicate/rapid join/leave/reconnect system messages ---
     const now = Date.now();
     if (isSystem) { // Apply filtering only to system messages
         // Check if the *exact same message* arrived very recently
@@ -49,16 +58,17 @@ export function addChatMessage(msgData, type = 'normal') {
             return; // Don't add the message
         }
 
-        // Check specifically for the "leave" then immediate "join" pattern for the same user
+        // Check specifically for the "leave" then immediate "join/reconnect" pattern for the same user
         if (currentUsername) { // Only apply join/leave pattern check if username was extracted
-            const isLeaveMessage = messageText.includes(" has left the lobby.");
-            const lastWasJoin = lastSystemMessageText === `${currentUsername} has joined the lobby.`; // Exact match for last join
+            const isLeaveMessage = messageText.includes(" has left the ");
+            const lastWasJoin = lastSystemMessageText === `${currentUsername} has joined the lobby.` || lastSystemMessageText === `${currentUsername} has joined the game.`;
+            const lastWasReconnect = lastSystemMessageText === `${currentUsername} has reconnected.`;
 
-            if (isLeaveMessage && lastWasJoin && (now - lastSystemMessageTime < 2000)) { // 2 second threshold for leave after join
-                 console.log(`Skipping leave message for ${currentUsername} due to rapid rejoin.`);
-                 // Don't update lastSystemMessageText here, keep the "join" as the last significant event
-                 // Update time to prevent immediate duplicate "leave" if server sends multiple
-                 lastSystemMessageTime = now;
+            // If current is leave, and last was join/reconnect very recently, skip leave
+            if (isLeaveMessage && (lastWasJoin || lastWasReconnect) && (now - lastSystemMessageTime < 2000)) { // 2 second threshold for leave after join/reconnect
+                 console.log(`Skipping leave message for ${currentUsername} due to rapid join/reconnect.`);
+                 // Don't update lastSystemMessageText here, keep the join/reconnect as the last significant event
+                 lastSystemMessageTime = now; // Update time to prevent immediate duplicate "leave"
                  return; // Skip the "leave" message
             }
         }
@@ -73,7 +83,10 @@ export function addChatMessage(msgData, type = 'normal') {
     // Apply styles
     if (type === 'system') {
         item.style.fontStyle = 'italic';
-        item.style.color = '#6c757d'; // Use style.css class?
+        item.style.color = '#6c757d';
+    }
+    if (isCorrectGuess) {
+        item.classList.add('correct-guess'); // Use CSS class for styling correct guesses
     }
 
     messagesList.appendChild(item);

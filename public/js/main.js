@@ -1,4 +1,3 @@
-// public/js/main.js - Script for index.html (start page)
 import * as LobbyListUI from './ui/lobbyListUI.js';
 
 const usernameForm = document.getElementById('username-form');
@@ -19,9 +18,12 @@ function connectSocket() {
         requestLobbyList(); // Request list if already connected
         return;
     }
-    // --- Connect specifying the path - Add /game prefix back ---
-    console.log("Attempting to connect socket at /game/socket.io");
-    socket = io({ path: '/game/socket.io' }); // Use path WITH /game
+    // --- Connect specifying the path - Add /game prefix ---
+    // If running WITHOUT Nginx locally, change path to '/game/socket.io'
+    const socketPath = '/socket.io'; // For Nginx setup removing /game prefix
+    // const socketPath = '/game/socket.io'; // For local testing without Nginx
+    console.log(`Attempting to connect socket at ${socketPath}`);
+    socket = io({ path: socketPath });
     // --- End Connect ---
 
     socket.on('connect', () => {
@@ -29,14 +31,18 @@ function connectSocket() {
         requestLobbyList(); // Request list on connect
     });
 
-    socket.on('disconnect', () => {
-        console.log('Disconnected from server.');
+    socket.on('disconnect', (reason) => {
+        console.log(`Disconnected from server. Reason: ${reason}`);
         LobbyListUI.showError("Disconnected from server. Cannot fetch lobbies.");
+        enableLobbyListButtons(); // Re-enable buttons on disconnect
+        enableUsernameForm(); // Re-enable create/join
     });
 
      socket.on('connect_error', (err) => {
         console.error("Main page connection Error:", err);
         LobbyListUI.showError("Failed to connect to server.");
+        enableLobbyListButtons();
+        enableUsernameForm();
     });
 
     socket.on('lobby list update', (lobbies) => {
@@ -48,7 +54,7 @@ function connectSocket() {
     // Listen for creation/join responses
     socket.on('lobby created', ({ lobbyId }) => {
         console.log('Lobby created successfully:', lobbyId);
-        // --- Redirect path - Add /game prefix back ---
+        // --- Redirect path - Add /game prefix ---
         window.location.href = `/game/lobby?id=${lobbyId}`; // Path WITH /game
         // --- End Redirect ---
     });
@@ -61,7 +67,7 @@ function connectSocket() {
 
      socket.on('join success', ({ lobbyId }) => {
         console.log('Joined lobby successfully:', lobbyId);
-         // --- Redirect path - Add /game prefix back ---
+         // --- Redirect path - Add /game prefix ---
         window.location.href = `/game/lobby?id=${lobbyId}`; // Path WITH /game
         // --- End Redirect ---
     });
@@ -86,7 +92,7 @@ function validateUsername() {
     errorMessage.textContent = ''; // Clear previous errors
 
     if (!username) { errorMessage.textContent = 'Please enter a username.'; return null; }
-    if (!/^[A-Za-z0-9_]+$/.test(username)) { errorMessage.textContent = 'Invalid characters.'; return null; }
+    if (!/^[A-Za-z0-9_]+$/.test(username)) { errorMessage.textContent = 'Invalid characters (use A-Z, a-z, 0-9, _).'; return null; }
     if (username.length > 16) { errorMessage.textContent = 'Max 16 characters.'; return null; }
     return username;
 }
@@ -101,16 +107,39 @@ function enableUsernameForm() {
 }
 
 function disableLobbyListButtons() {
-     refreshLobbiesBtn.disabled = true; backToUsernameBtn.disabled = true;
-     lobbyListUl.querySelectorAll('button.join-lobby-btn').forEach(btn => btn.disabled = true);
+     if(refreshLobbiesBtn) refreshLobbiesBtn.disabled = true;
+     if(backToUsernameBtn) backToUsernameBtn.disabled = true;
+     if(lobbyListUl) lobbyListUl.querySelectorAll('button.join-lobby-btn').forEach(btn => btn.disabled = true);
 }
 function enableLobbyListButtons() {
-     refreshLobbiesBtn.disabled = false; backToUsernameBtn.disabled = false;
-     lobbyListUl.querySelectorAll('button.join-lobby-btn').forEach(btn => {
-         // Re-enable only if lobby isn't full/in-game based on its text content perhaps?
-         // For simplicity, re-enable all for now. List update will disable again if needed.
-         btn.disabled = false;
-     });
+     if(refreshLobbiesBtn) refreshLobbiesBtn.disabled = false;
+     if(backToUsernameBtn) backToUsernameBtn.disabled = false;
+     if(lobbyListUl) {
+        // Re-enable buttons based on lobby state shown in the list item
+        lobbyListUl.querySelectorAll('li').forEach(item => {
+            const button = item.querySelector('button.join-lobby-btn');
+            if (button) {
+                const phaseSpan = item.querySelector('.lobby-phase');
+                const playersSpan = item.querySelector('.lobby-players');
+                let isJoinable = true;
+                if (phaseSpan && phaseSpan.textContent.includes('LOBBY') === false) {
+                    isJoinable = false; // In game
+                    button.textContent = 'In Game';
+                }
+                if (playersSpan) {
+                    const match = playersSpan.textContent.match(/(\d+)\/(\d+)/);
+                    if (match && parseInt(match[1], 10) >= parseInt(match[2], 10)) {
+                        isJoinable = false; // Full
+                        button.textContent = 'Full';
+                    }
+                }
+                button.disabled = !isJoinable;
+                if (isJoinable) {
+                    button.textContent = 'Join'; // Reset text if it became joinable
+                }
+            }
+        });
+     }
 }
 
 function requestLobbyList() {
@@ -149,7 +178,7 @@ usernameForm.addEventListener('submit', (e) => {
                  errorMessage.textContent = 'Connection failed. Cannot create lobby.';
                  enableUsernameForm();
              }
-        }, 3000); // 3 second timeout
+        }, 5000); // 5 second timeout
     } else {
          socket.emit('create lobby', username);
     }
@@ -176,12 +205,19 @@ backToUsernameBtn.addEventListener('click', () => {
 
 function handleJoinLobbyClick(lobbyId) {
      const username = sessionStorage.getItem('drawingGameUsername');
-     if (!username) { /* ... handle error ... */ return; }
+     if (!username) {
+        errorMessage.textContent = 'Username not set. Please go back.';
+        return;
+     }
      if (socket && socket.connected) {
          console.log(`Attempting join ${lobbyId} as ${username}`);
-         disableLobbyListButtons();
+         disableLobbyListButtons(); // Disable all buttons while attempting join
          socket.emit('join lobby', { lobbyId, username });
-     } else { LobbyListUI.showError("Not connected."); }
+     } else {
+        LobbyListUI.showError("Not connected. Please refresh.");
+        // Attempt to reconnect?
+        connectSocket();
+     }
 }
 
 // --- Initial State ---

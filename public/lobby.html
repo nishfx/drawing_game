@@ -11,12 +11,12 @@
     <div id="header-area">
         <img src="/game/images/header.jpeg" alt="Drawing Game Logo" width="444" height="250" style="display: block; margin: 0 auto 20px auto; max-width: 100%;">
         <p id="lobby-status">Waiting for players...</p>
+        <p>Status: <span id="status" style="font-weight: normal;">Connecting...</span></p> <!-- Added connection status -->
     </div>
 
     <div id="main-layout">
-        <!-- Player List Area (Title is now conceptually above this via CSS) -->
+        <!-- Player List Area -->
         <div id="player-list-area">
-             <!-- Lobby Title (Logically separate but visually grouped) -->
             <h2 id="lobby-title-display">Lobby</h2>
             <h3>Players <span id="player-count-display">(?/?)</span></h3>
             <ul id="player-list"></ul>
@@ -26,11 +26,17 @@
         <div id="lobby-canvas-area">
             <canvas id="lobby-canvas" width="600" height="450"></canvas>
             <div id="lobby-drawing-tools">
+                <!-- Tool Buttons -->
                 <button class="tool-button active" data-tool="pencil" title="Pencil">✏️</button>
-                <button class="tool-button" data-tool="eraser" title="Eraser">🧼</button>
-                <button class="tool-button" data-tool="fill" title="Fill (Not Implemented)">💧</button>
-                <button class="tool-button" data-tool="shapes" title="Shapes (Not Implemented)">□</button>
+                <button class="tool-button" data-tool="eraser" title="Eraser (Global)">🧼</button>
+                <button class="tool-button" data-tool="fill" title="Fill">💧</button>
+                <button class="tool-button" data-tool="rectangle" title="Rectangle Tool">□</button>
+                <!-- <button class="tool-button" data-tool="circle" title="Circle Tool (Not Implemented)">○</button> -->
+
+                <!-- Color Picker -->
                 <input type="color" id="color-picker" value="#000000" title="Color Picker">
+
+                <!-- Line Width Selector -->
                  <select id="line-width-selector" title="Line Width">
                     <option value="2">2px</option>
                     <option value="5" selected>5px</option>
@@ -38,7 +44,9 @@
                     <option value="15">15px</option>
                     <option value="25">25px</option>
                 </select>
-                <button class="tool-button" id="undo-btn" title="Undo (Not Implemented)">↩️</button>
+
+                <!-- Action Buttons -->
+                <button class="tool-button" id="undo-btn" title="Undo Last Action">↩️</button>
                 <button class="tool-button" id="clear-canvas-btn" title="Clear Entire Canvas">🗑️</button>
             </div>
         </div>
@@ -62,7 +70,7 @@
         <button id="start-game-btn" style="display: none;">Start Game</button>
     </div>
 
-
+    <!-- Add /game prefix -->
     <script src="/game/socket.io/socket.io.js"></script>
     <script src="/game/js/lobbyClient.js" type="module"></script>
 </body>

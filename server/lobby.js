@@ -1,11 +1,8 @@
-// server/lobby.js
 import GameManager from './gameManager.js';
 import { getRandomColor } from './utils.js';
 
 const MAX_PLAYERS_PER_LOBBY = 4;
-// --- TESTING: Allow starting with 1 player ---
-const MIN_PLAYERS_TO_START = 1; // Original value was 2
-// --- END TESTING ---
+const MIN_PLAYERS_TO_START = 2; // Revert testing change
 
 class Lobby {
     constructor(id, io, lobbyManager) {
@@ -18,8 +15,8 @@ class Lobby {
         this.gameManager = new GameManager(this.io, this.id);
         this.gameManager.setLobbyReference(this);
         this.lobbyChatHistory = [];
-        this.lobbyCanvasCommands = [];
-        this.maxLobbyCommands = 500;
+        this.lobbyCanvasCommands = []; // Stores { cmdId, playerId, type, data... }
+        this.maxLobbyCommands = 1000; // Increased limit for more complex drawings/undos
     }
 
     // --- Player Management ---
@@ -35,7 +32,7 @@ class Lobby {
         this.players.set(socket.id, playerData);
         socket.join(this.id);
 
-        if (isHost || this.players.size === 1) {
+        if (isHost || !this.hostId) { // Ensure host is set if none exists
              this.hostId = socket.id;
              playerData.isHost = true;
         }
@@ -43,7 +40,7 @@ class Lobby {
         console.log(`${username} (${socket.id}) added to lobby ${this.id}. Host: ${playerData.isHost}`);
         this.sendLobbyState(socket); // Send full state to new player
         this.broadcastLobbyPlayerList(); // Update list for others
-        // Join message broadcast handled by LobbyManager
+        // Join message broadcast handled by LobbyManager after slight delay
         return true;
     }
 
@@ -58,6 +55,9 @@ class Lobby {
         socket.leave(this.id);
         console.log(`${username} (${leavingSocketId}) left lobby ${this.id}.`);
 
+        // Remove player's drawing commands from history
+        this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => cmd.playerId !== leavingSocketId);
+
         const isGracePeriod = this.lobbyManager.recentlyCreated.has(this.id);
         if (!(wasOnlyPlayer && isGracePeriod)) {
             console.log(`Broadcasting leave message for ${username}.`);
@@ -69,6 +69,7 @@ class Lobby {
         this.broadcastLobbyPlayerList(); // Update list immediately
 
         if (wasHost && this.players.size > 0) {
+            // Promote the player who joined earliest (first in Map iteration)
             const nextHostEntry = this.players.entries().next().value;
             if (nextHostEntry) {
                 const [nextHostId, nextHostData] = nextHostEntry;
@@ -76,20 +77,20 @@ class Lobby {
                 nextHostData.isHost = true;
                 console.log(`Host left. New host: ${nextHostData.name} (${nextHostId})`);
                 this.broadcastSystemMessage(`${nextHostData.name} is now the host.`);
-                this.broadcastLobbyPlayerList();
-                nextHostData.socket.emit('promoted to host');
+                this.broadcastLobbyPlayerList(); // Broadcast updated host status
+                if (nextHostData.socket) {
+                    nextHostData.socket.emit('promoted to host');
+                }
             }
         } else if (this.players.size === 0) {
             this.hostId = null;
             console.log(`Lobby ${this.id} became empty.`);
         }
 
-        // --- TESTING: Check against the modified MIN_PLAYERS_TO_START ---
         if (this.gameManager.gamePhase !== 'LOBBY' && this.players.size < MIN_PLAYERS_TO_START && this.players.size > 0) {
              console.log(`Lobby ${this.id}: Not enough players (${this.players.size}/${MIN_PLAYERS_TO_START}), stopping game.`);
              this.gameManager.goToLobby();
         }
-        // --- END TESTING ---
     }
 
     isFull() { return this.players.size >= this.maxPlayers; }
@@ -105,9 +106,8 @@ class Lobby {
             players: Array.from(this.players.values(), p => ({ id: p.id, name: p.name, color: p.color, isHost: p.isHost, score: p.score || 0 })),
             hostId: this.hostId,
             chatHistory: this.lobbyChatHistory,
-            canvasCommands: this.lobbyCanvasCommands,
+            canvasCommands: this.lobbyCanvasCommands, // Send full command history
             gamePhase: this.gameManager.gamePhase,
-            // Send min players needed so UI can reflect the testing change if desired
             minPlayers: MIN_PLAYERS_TO_START
         };
         socket.emit('lobby state', state);
@@ -119,7 +119,7 @@ class Lobby {
     }
 
      broadcastSystemMessage(message) {
-        const msgData = { text: message };
+        const msgData = { text: message, type: 'system' }; // Add type hint
         // Add system messages to chat history as well? Optional.
         // this.lobbyChatHistory.push(msgData);
         // if (this.lobbyChatHistory.length > 50) { this.lobbyChatHistory.shift(); }
@@ -128,7 +128,7 @@ class Lobby {
 
     // --- Event Handling ---
 
-    // NEW Method to re-register events (called by LobbyManager on rejoin)
+    // Method to re-register events (called by LobbyManager on rejoin)
     registerSocketEvents(socket) {
          console.log(`Registering lobby/game events for ${socket.id} in lobby ${this.id}`);
          // Clear potential old listeners first to prevent duplicates
@@ -138,6 +138,7 @@ class Lobby {
          socket.removeAllListeners('player ready');
          socket.removeAllListeners('submit vote');
          socket.removeAllListeners('chat message');
+         socket.removeAllListeners('undo last draw'); // Add new event
 
          // Add listeners again (forwarding handled by server.js)
          // No actual handlers needed here, just ensures the socket object
@@ -155,45 +156,112 @@ class Lobby {
         this.io.to(this.id).emit('lobby chat message', msgData);
     }
 
-    handleLobbyDraw(socket, drawData) {
-        if (!this.players.has(socket.id) || !drawData) return;
-        // Basic validation for draw data type
-        if (drawData.type === 'line' && typeof drawData.x0 === 'number') {
-            this.lobbyCanvasCommands.push(drawData);
-            if (this.lobbyCanvasCommands.length > this.maxLobbyCommands) { this.lobbyCanvasCommands.shift(); }
-            // Broadcast to others in the lobby
-            socket.to(this.id).emit('lobby draw update', drawData);
-        } else if (drawData.type === 'clear') {
-            console.log(`Lobby ${this.id}: Clearing canvas commands.`);
-            this.lobbyCanvasCommands = []; // Clear history on clear command
-            socket.to(this.id).emit('lobby draw update', drawData); // Broadcast clear
+    handleLobbyDraw(socket, drawCommand) {
+        if (!this.players.has(socket.id) || !drawCommand || !drawCommand.type || !drawCommand.cmdId) {
+            console.warn(`Lobby ${this.id}: Invalid lobby draw data from ${socket.id}:`, drawCommand);
+            return;
+        }
+
+        // Add player ID to the command before storing and broadcasting
+        const commandWithPlayer = { ...drawCommand, playerId: socket.id };
+
+        // Basic validation based on type
+        let isValid = false;
+        switch(drawCommand.type) {
+            case 'line':
+                isValid = typeof drawCommand.x0 === 'number' && typeof drawCommand.y0 === 'number' &&
+                          typeof drawCommand.x1 === 'number' && typeof drawCommand.y1 === 'number' &&
+                          typeof drawCommand.size === 'number';
+                break;
+            case 'fill':
+                isValid = typeof drawCommand.x === 'number' && typeof drawCommand.y === 'number' &&
+                          typeof drawCommand.color === 'string';
+                break;
+            case 'rect': // Renamed from 'shape' for clarity
+                isValid = typeof drawCommand.x0 === 'number' && typeof drawCommand.y0 === 'number' &&
+                          typeof drawCommand.x1 === 'number' && typeof drawCommand.y1 === 'number' &&
+                          typeof drawCommand.color === 'string' && typeof drawCommand.size === 'number';
+                break;
+            case 'clear':
+                isValid = true; // No extra data needed
+                break;
+            default:
+                console.warn(`Lobby ${this.id}: Unknown draw command type: ${drawCommand.type}`);
+                isValid = false;
+        }
+
+        if (!isValid) {
+            console.warn(`Lobby ${this.id}: Invalid data for draw type ${drawCommand.type} from ${socket.id}:`, drawCommand);
+            return;
+        }
+
+        // Handle clear separately - it resets history
+        if (commandWithPlayer.type === 'clear') {
+            console.log(`Lobby ${this.id}: Clearing canvas commands by ${socket.id}.`);
+            this.lobbyCanvasCommands = []; // Clear history
+            // Broadcast clear command (others will clear and redraw empty)
+            this.io.to(this.id).emit('lobby draw update', commandWithPlayer);
         } else {
-            console.warn(`Lobby ${this.id}: Invalid lobby draw data from ${socket.id}:`, drawData);
+            // Add command to history
+            this.lobbyCanvasCommands.push(commandWithPlayer);
+            if (this.lobbyCanvasCommands.length > this.maxLobbyCommands) {
+                this.lobbyCanvasCommands.shift();
+            }
+            // Broadcast command to others in the lobby
+            socket.to(this.id).emit('lobby draw update', commandWithPlayer);
+        }
+    }
+
+    handleUndoLastDraw(socket) {
+        if (!this.players.has(socket.id)) return;
+        const playerId = socket.id;
+
+        // Find the last command added by this player
+        let lastCommandIndex = -1;
+        for (let i = this.lobbyCanvasCommands.length - 1; i >= 0; i--) {
+            if (this.lobbyCanvasCommands[i].playerId === playerId) {
+                lastCommandIndex = i;
+                break;
+            }
+        }
+
+        if (lastCommandIndex !== -1) {
+            const removedCommand = this.lobbyCanvasCommands.splice(lastCommandIndex, 1)[0];
+            console.log(`Lobby ${this.id}: Undoing command ${removedCommand.cmdId} by ${playerId}`);
+            // Broadcast that a command was removed
+            this.io.to(this.id).emit('lobby command removed', { cmdId: removedCommand.cmdId });
+        } else {
+            console.log(`Lobby ${this.id}: No command found for player ${playerId} to undo.`);
+            // Optionally send a message back to the user?
+            // socket.emit('system message', 'Nothing to undo.');
         }
     }
 
 
     handleStartGameRequest(socket) {
         if (socket.id !== this.hostId) { socket.emit('system message', 'Only host can start.'); return; }
-        // --- TESTING: Check against the modified MIN_PLAYERS_TO_START ---
         if (this.players.size < MIN_PLAYERS_TO_START) {
             socket.emit('system message', `Need ${MIN_PLAYERS_TO_START} player(s) to start (currently ${this.players.size}).`);
             return;
         }
-        // --- END TESTING ---
         if (this.gameManager.gamePhase !== 'LOBBY') { socket.emit('system message', `Game already running.`); return; }
         console.log(`Host ${this.players.get(socket.id)?.name} starting game in lobby ${this.id}`);
-        this.gameManager.startGame();
+        this.io.to(this.id).emit('game starting', { lobbyId: this.id }); // Notify clients game is starting
+        // Add a small delay before actually starting the game logic
+        // to allow clients to navigate/prepare
+        setTimeout(() => {
+            this.gameManager.startGame();
+        }, 500); // 500ms delay
     }
 
     getPlayerCount() { return this.players.size; }
+
     attemptAutoStartGame() {
-        // --- TESTING: Check against the modified MIN_PLAYERS_TO_START ---
-        if (this.gameManager.gamePhase === 'LOBBY' && this.players.size >= MIN_PLAYERS_TO_START) {
-            console.log(`Lobby ${this.id}: Auto-starting game.`);
-            this.gameManager.startGame();
-        }
-        // --- END TESTING ---
+        // Disable auto-start for now, requires explicit host action
+        // if (this.gameManager.gamePhase === 'LOBBY' && this.players.size >= MIN_PLAYERS_TO_START) {
+        //     console.log(`Lobby ${this.id}: Auto-starting game.`);
+        //     this.gameManager.startGame();
+        // }
     }
 }
 

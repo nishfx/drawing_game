@@ -1,4 +1,3 @@
-// server/lobbyManager.js
 import Lobby from './lobby.js';
 
 const MAX_LOBBIES = 50;
@@ -29,8 +28,17 @@ class LobbyManager {
         setTimeout(() => { const wasPresent = this.recentlyCreated.delete(lobbyId); if (wasPresent) { console.log(`Grace ended for ${lobbyId}.`); } }, LOBBY_EMPTY_GRACE_PERIOD_MS);
         console.log(`Lobby created: ${lobbyId} by ${username}`);
         const added = newLobby.addPlayer(hostSocket, username, true);
-        if (added) { hostSocket.emit('lobby created', { lobbyId }); newLobby.broadcastSystemMessage(`${username} joined.`); }
-        else { console.error(`Failed add host ${username} to ${lobbyId}`); this.lobbies.delete(lobbyId); this.recentlyCreated.delete(lobbyId); hostSocket.emit('lobby creation failed', 'Server error.'); }
+        if (added) {
+            hostSocket.emit('lobby created', { lobbyId });
+            // Delay join message slightly to ensure client is ready
+            setTimeout(() => newLobby.broadcastSystemMessage(`${username} has joined the lobby.`), 100);
+        }
+        else {
+            console.error(`Failed add host ${username} to ${lobbyId}`);
+            this.lobbies.delete(lobbyId);
+            this.recentlyCreated.delete(lobbyId);
+            hostSocket.emit('lobby creation failed', 'Server error.');
+        }
     }
 
     joinLobby(playerSocket, lobbyId, username) {
@@ -41,11 +49,18 @@ class LobbyManager {
         if (lobby.isUsernameTakenByOther(username, playerSocket.id)) { playerSocket.emit('join failed', 'Username taken.'); return; }
         console.log(`${username} joining ${lobbyId}`);
         const added = lobby.addPlayer(playerSocket, username, lobby.players.size === 0);
-        if (added) { playerSocket.emit('join success', { lobbyId }); lobby.broadcastSystemMessage(`${username} joined.`); }
-        else { console.error(`Failed add player ${username} to ${lobbyId}`); playerSocket.emit('join failed', 'Server error.'); }
+        if (added) {
+            playerSocket.emit('join success', { lobbyId });
+            // Delay join message slightly
+            setTimeout(() => lobby.broadcastSystemMessage(`${username} has joined the lobby.`), 100);
+        }
+        else {
+            console.error(`Failed add player ${username} to ${lobbyId}`);
+            playerSocket.emit('join failed', 'Server error.');
+        }
     }
 
-    // --- NEW: Handle Rejoining Game ---
+    // --- Handle Rejoining Game ---
     rejoinGame(socket, lobbyId, username) {
         const lobby = this.lobbies.get(lobbyId);
         if (!lobby) {
@@ -91,6 +106,7 @@ class LobbyManager {
                 lobby.gameManager.broadcastGameState(); // Then send game state
                 // Update player list for everyone
                 lobby.broadcastLobbyPlayerList();
+                lobby.broadcastSystemMessage(`${username} has reconnected.`);
             } else {
                  // Same socket ID, maybe just a refresh? Ensure they are in the room.
                  socket.join(lobby.id);
@@ -106,15 +122,18 @@ class LobbyManager {
             if (added) {
                  lobby.broadcastSystemMessage(`${username} has joined the game.`); // Announce join
                  lobby.broadcastLobbyPlayerList(); // Update list
+            } else {
+                 // If add failed (e.g., lobby full), addPlayer already emits 'join failed'
+                 console.warn(`Failed to re-add player ${username} to lobby ${lobbyId}.`);
             }
-            // If add failed (e.g., lobby full), addPlayer already emits 'join failed'
         }
     }
 
     leaveLobby(socket) {
         const lobby = this.findLobbyBySocketId(socket.id);
         if (lobby) {
-            console.log(`Player ${socket.id} leaving lobby ${lobby.id}`);
+            const playerName = lobby.players.get(socket.id)?.name || socket.id;
+            console.log(`Player ${playerName} (${socket.id}) leaving lobby ${lobby.id}`);
             lobby.removePlayer(socket); // Update lobby internal state (handles leave message now)
 
             if (lobby.isEmpty()) {
@@ -159,6 +178,8 @@ class LobbyManager {
             if (lobby.gameManager && lobby.gameManager.roundTimer) {
                 clearTimeout(lobby.gameManager.roundTimer);
             }
+            // Optional: Inform players in the lobby they are being disconnected?
+            // lobby.broadcastSystemMessage("Lobby closed.");
             this.lobbies.delete(lobbyId);
             this.recentlyCreated.delete(lobbyId);
         }

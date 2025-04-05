@@ -1,19 +1,18 @@
-// server/utils.js
-
 // Simple list of distinct colors
 const playerColors = [
-    "#FF5733", // Orange Red
-    "#33FF57", // Lime Green
-    "#3357FF", // Strong Blue
-    "#FF33A1", // Hot Pink
-    "#F1C40F", // Yellow
-    "#8E44AD", // Purple
-    "#1ABC9C", // Turquoise
-    "#E67E22", // Orange
-    "#3498DB", // Light Blue
-    "#E74C3C", // Red
-    "#2ECC71", // Emerald Green
-    "#9B59B6", // Amethyst
+    "#E63946", // Red
+    "#1D3557", // Dark Blue
+    "#457B9D", // Medium Blue
+    "#A8DADC", // Light Blue/Cyan
+    "#F1FAEE", // Off White (maybe not best for background)
+    "#F4A261", // Sandy Brown/Orange
+    "#E76F51", // Coral
+    "#2A9D8F", // Teal Green
+    "#E9C46A", // Saffron Yellow
+    "#6A0DAD", // Purple
+    "#FFC0CB", // Pink
+    "#008000", // Green
+    "#808080", // Gray
 ];
 let colorIndex = 0;
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drawing Game</title>
-    <!-- Add /game prefix back -->
+    <!-- Add /game prefix -->
     <link rel="stylesheet" href="/game/style.css">
 </head>
 <body>
@@ -41,6 +41,7 @@
             <div id="game-area">
                 <!-- Wrap canvas and controls -->
                 <div id="drawing-controls">
+                    <!-- NOTE: Game canvas does not have tools, only drawing/ready -->
                     <canvas id="drawing-canvas" width="800" height="600"></canvas>
                     <button id="ready-button" style="display: none; margin-top: 10px; padding: 10px 20px; cursor: pointer;">Ready</button>
                 </div>
@@ -48,14 +49,14 @@
                 <div id="chat-area">
                     <ul id="messages"></ul>
                     <form id="chat-form" action="">
-                        <input id="chat-input" autocomplete="off" placeholder="Type message..." /><button type="submit">Send</button>
+                        <input id="chat-input" autocomplete="off" placeholder="Type guess or message..." /><button type="submit">Send</button>
                     </form>
                 </div>
             </div>
         </div> <!-- End game-area-wrapper -->
     </div> <!-- End main-layout -->
 
-    <!-- Adjust paths for JS - Add /game prefix back -->
+    <!-- Adjust paths for JS - Add /game prefix -->
     <script src="/game/socket.io/socket.io.js"></script>
     <script src="/game/js/gameClient.js" type="module"></script>
 </body>

@@ -1,5 +1,3 @@
-// public/js/lobbyClient.js - Script for lobby.html
-import * as UIManager from './uiManager.js'; // UIManager might not be needed here anymore
 import * as CanvasManager from './canvasManager.js';
 import * as PlayerListUI from './ui/playerListUI.js';
 import * as ChatUI from './ui/chatUI.js';
@@ -30,7 +28,8 @@ const clearCanvasBtn = document.getElementById('clear-canvas-btn');
 const colorPicker = document.getElementById('color-picker');
 const lineWidthSelector = document.getElementById('line-width-selector');
 const statusDisplay = document.getElementById('status');
-const lobbyTitleDisplay = document.getElementById('lobby-title-display'); // Added
+const lobbyTitleDisplay = document.getElementById('lobby-title-display');
+const undoBtn = document.getElementById('undo-btn');
 
 // --- Initial Setup ---
 function initializeLobby() {
@@ -45,11 +44,15 @@ function initializeLobby() {
 
     console.log(`Lobby ID: ${currentLobbyId}, Username: ${username}`);
 
-    if (!CanvasManager.initCanvas('lobby-canvas')) { handleFatalError("Failed to initialize lobby canvas."); return; }
+    if (!CanvasManager.initCanvas('lobby-canvas', handleDrawEvent)) { // Pass event handler
+        handleFatalError("Failed to initialize lobby canvas.");
+        return;
+    }
 
+    // Set initial tool state from UI elements
     CanvasManager.setColor(colorPicker?.value || '#000000');
     CanvasManager.setLineWidth(lineWidthSelector?.value || 5);
-    CanvasManager.setTool('pencil');
+    CanvasManager.setTool('pencil'); // Default tool
 
     setupSocketConnection(currentLobbyId, username);
     setupActionListeners();
@@ -59,11 +62,18 @@ function initializeLobby() {
 
 function setupSocketConnection(lobbyId, username) {
     if (socket && socket.connected) socket.disconnect();
-    console.log("Attempting to connect socket at /game/socket.io");
-    socket = io({ path: '/game/socket.io' });
+
+    // --- Connect specifying the path - Add /game prefix ---
+    // If running WITHOUT Nginx locally, change path to '/game/socket.io'
+    const socketPath = '/socket.io'; // For Nginx setup removing /game prefix
+    // const socketPath = '/game/socket.io'; // For local testing without Nginx
+    console.log(`Attempting to connect socket at ${socketPath}`);
+    socket = io({ path: socketPath });
 
     socket.on('connect', () => {
         console.log('Connected to server!', socket.id);
+        myPlayerId = socket.id; // Set player ID immediately on connect
+        CanvasManager.setPlayerId(myPlayerId); // Inform CanvasManager
         if (statusDisplay) {
              statusDisplay.textContent = 'Connected';
              statusDisplay.style.color = 'green';
@@ -71,7 +81,11 @@ function setupSocketConnection(lobbyId, username) {
         if (!hasJoined) {
             console.log(`Emitting join lobby for ${lobbyId} as ${username}`);
             socket.emit('join lobby', { lobbyId, username });
-        } else { console.log("Reconnected, join already confirmed."); }
+        } else {
+            console.log("Reconnected, attempting to rejoin lobby state.");
+            // Re-emit join lobby to ensure server recognizes the new socket ID for the user
+            socket.emit('join lobby', { lobbyId, username });
+        }
     });
 
     socket.on('disconnect', (reason) => {
@@ -86,6 +100,7 @@ function setupSocketConnection(lobbyId, username) {
         if(lobbyTitleDisplay) lobbyTitleDisplay.textContent = "Lobby"; // Reset title
         CanvasManager.disableDrawing();
         hasJoined = false; myPlayerId = null; isHost = false;
+        CanvasManager.setPlayerId(null); // Clear player ID
     });
 
     socket.on('connect_error', (err) => {
@@ -102,34 +117,40 @@ function setupSocketConnection(lobbyId, username) {
         console.log(`Successfully registered in lobby ${confirmedLobbyId} on server.`);
         hasJoined = true;
         currentLobbyId = confirmedLobbyId;
+        // Request full state after successful join confirmation
+        // (Server might send 'lobby state' automatically, but this ensures it)
+        // socket.emit('request lobby state'); // Might be redundant if server sends state
     });
 
     socket.on('join failed', (reason) => {
         console.error('Join lobby failed:', reason);
-        if (!hasJoined) {
+        if (!hasJoined) { // Only redirect if initial join failed
             alert(`Failed to join lobby: ${reason}`);
             window.location.href = '/game/';
-        } else { console.warn("Received 'join failed' potentially after successful join."); }
+        } else {
+            // If already joined and received this, it might be a server hiccup or duplicate message
+            console.warn("Received 'join failed' potentially after successful join/reconnect.");
+            ChatUI.addChatMessage({ text: `Error: ${reason}`, type: 'system' });
+        }
     });
 
     socket.on('lobby state', (state) => {
         console.log('Received lobby state:', state);
-        if (!hasJoined) { console.warn("State before join success?"); hasJoined = true; }
-        myPlayerId = socket.id;
+        if (!myPlayerId) myPlayerId = socket.id; // Ensure player ID is set
+        CanvasManager.setPlayerId(myPlayerId); // Update CanvasManager just in case
+
+        hasJoined = true; // Mark as joined upon receiving state
         minPlayersToStart = state.minPlayers || 2;
         PlayerListUI.updatePlayerList(state.players, myPlayerId);
         ChatUI.clearChat();
         state.chatHistory?.forEach(msg => ChatUI.addChatMessage(msg));
-        CanvasManager.clearCanvas(false);
-        if (state.canvasCommands && Array.isArray(state.canvasCommands)) {
-             console.log(`Redrawing ${state.canvasCommands.length} canvas commands.`);
-             setTimeout(() => {
-                 state.canvasCommands.forEach(cmd => CanvasManager.drawExternalCommand(cmd));
-             }, 100);
-        } else { console.log("No canvas commands in initial state."); }
+
+        // Process canvas commands *after* setting player ID
+        CanvasManager.loadAndDrawHistory(state.canvasCommands || []);
+
         isHost = (state.hostId === myPlayerId);
         updateLobbyUI(state); // Pass full state
-        CanvasManager.enableDrawing();
+        CanvasManager.enableDrawing(); // Enable drawing after state is loaded
     });
 
     socket.on('lobby player list update', (players) => {
@@ -139,17 +160,55 @@ function setupSocketConnection(lobbyId, username) {
         isHost = me ? me.isHost : false;
         updateLobbyUI({ players }); // Pass only players for partial update
     });
-    socket.on('lobby chat message', (msgData) => { ChatUI.addChatMessage(msgData); });
-    socket.on('lobby draw update', (drawData) => { CanvasManager.drawExternalCommand(drawData); });
-    socket.on('promoted to host', () => { console.log("Promoted to host!"); isHost = true; ChatUI.addChatMessage({ text: "You are now the host." }, 'system'); if(startGameBtn) startGameBtn.style.display = 'block'; updateLobbyUI({}); });
+
+    socket.on('lobby chat message', (msgData) => {
+        // Add type if missing (e.g., for system messages)
+        ChatUI.addChatMessage(msgData, msgData.type || 'normal');
+    });
+
+    socket.on('lobby draw update', (drawData) => {
+        // Received a command from another player
+        CanvasManager.drawExternalCommand(drawData);
+    });
+
+    socket.on('lobby command removed', ({ cmdId }) => {
+        // Received notification that a command was undone by someone
+        CanvasManager.removeCommandById(cmdId);
+    });
+
+    socket.on('promoted to host', () => {
+        console.log("Promoted to host!");
+        isHost = true;
+        ChatUI.addChatMessage({ text: "You are now the host.", type: 'system' });
+        if(startGameBtn) startGameBtn.style.display = 'block';
+        updateLobbyUI({}); // Trigger UI update to reflect host status potentially
+    });
+
     socket.on('game starting', ({ lobbyId: confirmedLobbyId }) => {
         console.log(`Game starting for ${confirmedLobbyId}!`);
-        alert("Game is starting!");
-        window.location.href = `/game/game?lobbyId=${confirmedLobbyId}`;
+        // Disable UI elements immediately
+        if(startGameBtn) startGameBtn.disabled = true;
+        CanvasManager.disableDrawing();
+        ChatUI.addChatMessage({ text: "Game is starting...", type: 'system' });
+        // Redirect after a short delay to allow message display
+        setTimeout(() => {
+            window.location.href = `/game/game?lobbyId=${confirmedLobbyId}`;
+        }, 1000); // 1 second delay
     });
-    socket.on('system message', (message) => { ChatUI.addChatMessage({ text: message }, 'system'); });
+
+    socket.on('system message', (message) => { // General system messages
+        ChatUI.addChatMessage({ text: message, type: 'system' });
+    });
 
 } // End of setupSocketConnection
+
+// Callback function for CanvasManager to emit draw events
+function handleDrawEvent(drawDetail) {
+    if (socket && socket.connected && hasJoined) {
+        // console.log('Emitting draw event:', drawDetail);
+        socket.emit('lobby draw', drawDetail);
+    }
+}
 
 function setupActionListeners() {
     // Chat Form
@@ -159,7 +218,7 @@ function setupActionListeners() {
             if (chatInput && chatInput.value.trim() && socket && socket.connected) {
                 socket.emit('lobby chat message', chatInput.value);
                 chatInput.value = '';
-                emojiPicker.style.display = 'none';
+                if (emojiPicker) emojiPicker.style.display = 'none';
             }
         });
     } else { console.error("Lobby chat form not found!"); }
@@ -168,7 +227,7 @@ function setupActionListeners() {
     if (startGameBtn) {
         startGameBtn.addEventListener('click', () => {
             if (isHost && socket && socket.connected) {
-                console.log("Requesting start...");
+                console.log("Requesting start game...");
                 socket.emit('start game');
                 startGameBtn.disabled = true;
                 startGameBtn.textContent = 'Starting...';
@@ -176,20 +235,13 @@ function setupActionListeners() {
         });
     } else { console.warn("Start button not found."); }
 
-    // Lobby Canvas Drawing Event
-    if (lobbyCanvas) {
-        lobbyCanvas.addEventListener('lobbyDraw', (e) => {
-            if (socket && socket.connected && hasJoined) {
-                socket.emit('lobby draw', e.detail);
-            }
-        });
-    } else { console.error("Lobby canvas not found!"); }
-
     // Emoji Button
     if (emojiBtn) {
         emojiBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            emojiPicker.style.display = emojiPicker.style.display === 'block' ? 'none' : 'block';
+            e.stopPropagation(); // Prevent document click listener from closing it immediately
+            if (emojiPicker) {
+                emojiPicker.style.display = emojiPicker.style.display === 'block' ? 'none' : 'block';
+            }
         });
     }
 
@@ -203,14 +255,22 @@ function setupActionListeners() {
     // Drawing Tools Listener
     if (drawingToolsContainer) {
         drawingToolsContainer.addEventListener('click', (e) => {
-            if (e.target.classList.contains('tool-button') && e.target.dataset.tool) {
+            const button = e.target.closest('.tool-button'); // Find the button element
+            if (button && button.dataset.tool) {
+                // Handle tool selection
                 drawingToolsContainer.querySelectorAll('.tool-button.active').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                const selectedTool = e.target.dataset.tool;
+                button.classList.add('active');
+                const selectedTool = button.dataset.tool;
                 CanvasManager.setTool(selectedTool);
-                if (selectedTool === 'fill' || selectedTool === 'shapes') {
-                    console.log(`${selectedTool} tool selected (Not Implemented)`);
-                }
+                console.log(`Tool set to: ${selectedTool}`);
+            } else if (button && button.id === 'undo-btn') {
+                // Handle Undo button click
+                console.log("Undo clicked");
+                CanvasManager.undoLastAction(socket); // Pass socket to emit undo event
+            } else if (button && button.id === 'clear-canvas-btn') {
+                 // Handle Clear Canvas button click
+                 console.log("Clear Canvas clicked");
+                 CanvasManager.clearCanvas(true); // true to emit event
             }
         });
 
@@ -218,26 +278,16 @@ function setupActionListeners() {
             colorPicker.addEventListener('input', (e) => {
                 CanvasManager.setColor(e.target.value);
             });
+            // Ensure initial color is set
+            CanvasManager.setColor(colorPicker.value);
         }
 
         if (lineWidthSelector) {
             lineWidthSelector.addEventListener('change', (e) => {
                 CanvasManager.setLineWidth(e.target.value);
             });
-        }
-
-        const undoBtn = drawingToolsContainer.querySelector('#undo-btn');
-        if (undoBtn) {
-            undoBtn.addEventListener('click', () => {
-                console.log("Undo clicked (Not Implemented)");
-            });
-        }
-
-        if (clearCanvasBtn) {
-             clearCanvasBtn.addEventListener('click', () => {
-                 console.log("Clear Canvas clicked");
-                 CanvasManager.clearCanvas(); // Emits event
-             });
+            // Ensure initial width is set
+            CanvasManager.setLineWidth(lineWidthSelector.value);
         }
     }
 
@@ -245,7 +295,8 @@ function setupActionListeners() {
 
 // --- Updated UI Update Logic ---
 function updateLobbyUI(state) {
-    const players = state.players || Array.from(playerListElement?.children || []).map(li => ({ id: li.dataset.playerId, name: li.textContent.split(' (')[0], isHost: li.querySelector('.host-indicator') !== null }));
+    // Use state.players if provided, otherwise get from current UI list
+    const players = state.players || PlayerListUI.getPlayersFromList();
     const playerCount = players.length;
 
     // Update Player Count Display
@@ -258,28 +309,32 @@ function updateLobbyUI(state) {
         const host = players.find(p => p.isHost);
         const hostName = host ? host.name : null;
         lobbyTitleDisplay.textContent = hostName ? `${hostName}'s Lobby` : "Lobby";
-        // Add title attribute for full name if truncated
-        lobbyTitleDisplay.title = lobbyTitleDisplay.textContent;
+        lobbyTitleDisplay.title = lobbyTitleDisplay.textContent; // Tooltip for full name
     }
 
 
     // Update Lobby Status Text
     if (lobbyStatus) {
         if (playerCount < minPlayersToStart) {
-            lobbyStatus.textContent = `Waiting for more players...`;
+            lobbyStatus.textContent = `Waiting for ${minPlayersToStart - playerCount} more player(s)...`;
         } else {
-            const host = players.find(p => p.isHost); // Find host again (could be simplified)
+            const host = players.find(p => p.isHost);
             const hostName = host ? host.name : '...';
-            lobbyStatus.textContent = isHost ? `Ready when you are!` : `Waiting for host (${hostName})...`;
+            lobbyStatus.textContent = isHost ? `Ready when you are!` : `Waiting for host (${hostName}) to start...`;
         }
     }
 
-    // Update Start Game Button Visibility
+    // Update Start Game Button Visibility and State
     if (startGameBtn) {
-        if (isHost && playerCount >= minPlayersToStart) {
+        if (isHost) {
             startGameBtn.style.display = 'block';
-            startGameBtn.disabled = false;
-            startGameBtn.textContent = 'Start Game';
+            if (playerCount >= minPlayersToStart) {
+                startGameBtn.disabled = false;
+                startGameBtn.textContent = 'Start Game';
+            } else {
+                startGameBtn.disabled = true;
+                startGameBtn.textContent = `Need ${minPlayersToStart - playerCount} more`;
+            }
         } else {
             startGameBtn.style.display = 'none';
         }
@@ -289,15 +344,17 @@ function updateLobbyUI(state) {
 
 function populateEmojiPicker() {
     if (!emojiPicker) return;
-    const emojis = ['😊', '😂', '😍', '🤔', '😢', '😠', '👍', '👎', '❤️', '🎉', '✨', '🔥', '💡', '❓', '❗', '👋'];
+    const emojis = ['😊', '😂', '😍', '🤔', '😢', '😠', '👍', '👎', '❤️', '🎉', '✨', '🔥', '💡', '❓', '❗', '👋', '👀', '✅', '❌', '💯'];
     emojiPicker.innerHTML = ''; // Clear existing
     emojis.forEach(emoji => {
         const span = document.createElement('span');
         span.textContent = emoji;
         span.addEventListener('click', () => {
-            chatInput.value += emoji;
+            if (chatInput) {
+                chatInput.value += emoji;
+                chatInput.focus(); // Keep focus on input
+            }
             emojiPicker.style.display = 'none'; // Hide after selection
-            chatInput.focus(); // Keep focus on input
         });
         emojiPicker.appendChild(span);
     });
@@ -310,5 +367,9 @@ function handleFatalError(message) {
 }
 
 // --- Initialize ---
-try { initializeLobby(); }
-catch (error) { handleFatalError(`Initialization error: ${error.message}`); }
+// Ensure DOM is fully loaded before initializing
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeLobby);
+} else {
+    initializeLobby();
+}

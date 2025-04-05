@@ -1,4 +1,3 @@
-// public/js/ui/lobbyListUI.js
 const lobbyListUl = document.getElementById('lobby-list');
 const lobbyListSection = document.getElementById('lobby-list-section'); // Container
 
@@ -13,6 +12,23 @@ export function updateLobbyList(lobbies, joinClickHandler) {
 
     lobbies.forEach(lobby => {
         const item = document.createElement('li');
+        item.dataset.lobbyId = lobby.id; // Store lobby ID on the list item
+
+        // Determine if joinable
+        const isFull = lobby.playerCount >= lobby.maxPlayers;
+        const isInGame = lobby.gamePhase !== 'LOBBY';
+        const isJoinable = !isFull && !isInGame;
+
+        let buttonText = 'Join';
+        let buttonDisabled = false;
+        if (isFull) {
+            buttonText = 'Full';
+            buttonDisabled = true;
+        } else if (isInGame) {
+            buttonText = 'In Game';
+            buttonDisabled = true;
+        }
+
         item.innerHTML = `
             <div>
                 <span class="lobby-name">Lobby ${lobby.id}</span>
@@ -21,19 +37,13 @@ export function updateLobbyList(lobbies, joinClickHandler) {
             <div>
                 <span class="lobby-players">${lobby.playerCount}/${lobby.maxPlayers} Players</span>
                 <span class="lobby-phase">[${lobby.gamePhase || 'LOBBY'}]</span>
-                <button data-lobby-id="${lobby.id}" class="join-lobby-btn">Join</button>
+                <button data-lobby-id="${lobby.id}" class="join-lobby-btn" ${buttonDisabled ? 'disabled' : ''}>${buttonText}</button>
             </div>
         `;
-        // Add click listener to the button
+        // Add click listener to the button only if it's joinable
         const joinButton = item.querySelector('.join-lobby-btn');
-        if (joinButton) {
-            // Disable button if lobby is full or in game?
-            if (lobby.playerCount >= lobby.maxPlayers || lobby.gamePhase !== 'LOBBY') {
-                 joinButton.disabled = true;
-                 joinButton.textContent = (lobby.playerCount >= lobby.maxPlayers) ? 'Full' : 'In Game';
-            } else {
-                joinButton.addEventListener('click', () => joinClickHandler(lobby.id));
-            }
+        if (joinButton && isJoinable) {
+            joinButton.addEventListener('click', () => joinClickHandler(lobby.id));
         }
         lobbyListUl.appendChild(item);
     });

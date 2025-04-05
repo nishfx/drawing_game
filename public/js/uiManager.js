@@ -1,4 +1,3 @@
-// public/js/uiManager.js
 import * as TimerUI from './ui/timerUI.js';
 import * as PlayerListUI from './ui/playerListUI.js';
 import * as ChatUI from './ui/chatUI.js';
@@ -6,11 +5,10 @@ import * as VotingUI from './ui/votingUI.js';
 import * as ResultsUI from './ui/resultsUI.js';
 
 // --- DOM Elements (Only those needed for general phase control) ---
-// const statusElement = document.getElementById('status'); // Removed
 const gameStatusElement = document.getElementById('game-status');
 const wordHintElement = document.getElementById('word-hint');
 const readyButton = document.getElementById('ready-button');
-const drawingControls = document.getElementById('drawing-controls');
+const drawingControls = document.getElementById('drawing-controls'); // Wrapper for canvas/button
 
 // --- Export Functions that delegate ---
 export const updatePlayerList = PlayerListUI.updatePlayerList;
@@ -19,7 +17,6 @@ export const startTimer = TimerUI.startTimer;
 export const stopTimer = TimerUI.stopTimer;
 
 // Removed updateStatus function as the element is gone
-// export function updateStatus(isConnected) { ... }
 
 export function showGamePhaseUI(phase, data = {}) {
     console.log("UIManager: Updating UI for phase:", phase, data);
@@ -37,57 +34,72 @@ export function showGamePhaseUI(phase, data = {}) {
 
     // --- Show elements for the current phase ---
     switch (phase) {
-        case 'LOBBY': // This case might not be hit if game starts immediately from lobby
+        case 'LOBBY': // Game Manager is in Lobby state (e.g., between rounds)
             if (gameStatusElement) {
-                const playerCount = data.playerCount !== undefined ? data.playerCount : (document.getElementById('player-list')?.children?.length || 0);
-                const minPlayers = data.minPlayers || 2;
-                if (playerCount < minPlayers) {
-                    gameStatusElement.textContent = `Waiting for more players... (${playerCount}/${minPlayers})`;
-                } else {
-                    gameStatusElement.textContent = `Ready to start! Waiting...`;
-                }
+                gameStatusElement.textContent = `Waiting for next round...`;
             }
-            if (drawingControls) drawingControls.style.opacity = '0.5';
-            if (wordHintElement) wordHintElement.textContent = '--- LOBBY ---';
+            if (drawingControls) drawingControls.style.opacity = '0.5'; // Keep canvas dimmed
+            if (wordHintElement) wordHintElement.textContent = '--- ROUND OVER ---';
             break;
 
-        case 'WAITING': // Fallback case
+        case 'WAITING': // Fallback case or initial state before game starts
             if (gameStatusElement) gameStatusElement.textContent = 'Waiting for players...';
+            if (drawingControls) drawingControls.style.opacity = '0.5';
             break;
 
         case 'DRAWING':
             if (gameStatusElement) gameStatusElement.textContent = 'Draw the word!';
-            if (wordHintElement && data.word) { wordHintElement.textContent = data.word; wordHintElement.classList.add('is-word'); }
-            if (drawingControls) drawingControls.style.opacity = '1';
-            if (readyButton) { readyButton.style.display = 'block'; readyButton.disabled = false; readyButton.textContent = "Ready"; }
+            if (wordHintElement && data.word) {
+                // Display underscores for word length hint
+                const hint = data.word.replace(/[a-zA-Z]/g, '_').split('').join(' ');
+                wordHintElement.textContent = hint;
+                wordHintElement.classList.add('is-word'); // Style as word/hint
+            }
+            if (drawingControls) drawingControls.style.opacity = '1'; // Enable canvas visually
+            if (readyButton) {
+                readyButton.style.display = 'block';
+                readyButton.disabled = false; // Re-enable button at start of phase
+                readyButton.textContent = "Ready";
+            }
             TimerUI.showTimer();
             break;
 
         case 'VOTING':
             if (gameStatusElement) gameStatusElement.textContent = 'Vote for your favorite drawing!';
-            if (drawingControls) drawingControls.style.opacity = '0.5';
+            if (drawingControls) drawingControls.style.opacity = '0.5'; // Dim canvas
             if (data.drawings && Object.keys(data.drawings).length > 0 && data.myPlayerId) {
                 VotingUI.displayVotingOptions(data.drawings, data.myPlayerId);
                 VotingUI.showVotingArea();
-                VotingUI.enableVotingButtons();
+                VotingUI.enableVotingButtons(); // Ensure buttons are enabled at start
             } else {
                 console.warn("Voting phase UI: No drawings or missing myPlayerId.");
                 VotingUI.showVotingArea();
-                document.getElementById('voting-area').innerHTML = '<p>Waiting for drawings to vote on...</p>';
+                // Display a message if no drawings are available
+                const votingArea = document.getElementById('voting-area');
+                if (votingArea) {
+                    votingArea.innerHTML = '<p>Waiting for drawings to vote on...</p>';
+                    if (!data.drawings || Object.keys(data.drawings).length === 0) {
+                         votingArea.innerHTML = '<p>No drawings were submitted this round.</p>';
+                    }
+                }
             }
             TimerUI.showTimer();
             break;
 
         case 'RESULTS':
             if (gameStatusElement) gameStatusElement.textContent = 'Round Over!';
-            if (wordHintElement && data.word) { wordHintElement.textContent = `Word was: ${data.word}`; }
+            if (wordHintElement && data.word) {
+                wordHintElement.textContent = `Word was: ${data.word}`;
+                wordHintElement.classList.add('is-word');
+            }
             if (data.scores) {
                 ResultsUI.displayResults(data.scores, data.drawings || {});
                 ResultsUI.showResultsArea();
             } else {
                 console.warn("Results phase UI: Missing scores.");
                 ResultsUI.showResultsArea();
-                document.getElementById('results-area').innerHTML = '<p>Calculating results...</p>';
+                 const resultsArea = document.getElementById('results-area');
+                 if(resultsArea) resultsArea.innerHTML = '<p>Calculating results...</p>';
             }
             break;
 

@@ -1,6 +1,4 @@
-// server/gameManager.js
 import { getRandomWord } from './game/wordlist.js';
-// Removed Lobby import, as GameManager operates within a Lobby now
 
 // Constants remain the same
 const MAX_PLAYERS = 4; // Keep for reference, but Lobby enforces
@@ -13,7 +11,7 @@ class GameManager {
     // Modified Constructor: Takes io and lobbyId
     constructor(io, lobbyId) {
         this.io = io;
-        this.lobbyId = lobbyId; // ID of the lobby this game belongs to
+        this.lobbyId = lobbyId; // ID of the lobby this belongs to
         this.lobby = null; // Reference to the parent Lobby instance (set externally)
 
         // Game-specific state
@@ -21,8 +19,8 @@ class GameManager {
         this.currentWord = "";
         this.roundTimer = null;
         this.readyPlayers = new Set();
-        this.playerDrawings = {};
-        this.playerVotes = {};
+        this.playerDrawings = {}; // Stores { playerId: drawingDataUrl }
+        this.playerVotes = {}; // Stores { voterId: votedForId }
         this.currentTimerDuration = 0;
         this.currentTimerStart = 0;
     }
@@ -54,16 +52,24 @@ class GameManager {
             drawingsToSend = this.playerDrawings;
         }
 
+        // Get current scores from lobby player data
+        const currentScores = Array.from(this.getPlayers().values(), p => ({
+            id: p.id,
+            name: p.name,
+            score: p.score || 0,
+            receivedVotes: p.receivedVotes || 0 // Include votes received in this round for results phase
+        }));
+
+
         const state = {
             phase: this.gamePhase,
             word: (this.gamePhase === 'DRAWING' || this.gamePhase === 'RESULTS') ? this.currentWord : null,
             drawings: drawingsToSend,
-            scores: Array.from(this.getPlayers().values(), p => ({ id: p.id, name: p.name, score: p.score || 0 })),
+            scores: currentScores, // Send updated scores
             timerDuration: (this.gamePhase === 'DRAWING' || this.gamePhase === 'VOTING') ? this.currentTimerDuration : null,
             timerStart: (this.gamePhase === 'DRAWING' || this.gamePhase === 'VOTING') ? this.currentTimerStart : null,
             minPlayers: MIN_PLAYERS_TO_START,
             playerCount: this.getPlayers().size,
-            // Add lobby specific info if needed by game UI?
             lobbyId: this.lobbyId,
             hostId: this.lobby.hostId
         };
@@ -79,18 +85,30 @@ class GameManager {
              return; // Should only start from Lobby
         }
         console.log(`Lobby ${this.lobbyId}: Starting game sequence.`);
+        // Reset scores at the beginning of a new game sequence
+        this.getPlayers().forEach(p => {
+            p.score = 0;
+            p.receivedVotes = 0;
+            p.hasVoted = false;
+        });
         this.startDrawingPhase();
     }
 
     startDrawingPhase() {
         this.gamePhase = 'DRAWING';
         this.currentWord = getRandomWord();
-        this.readyPlayers.clear(); this.playerDrawings = {}; this.playerVotes = {};
-        // Reset round-specific player state (votes) - scores persist
-        this.getPlayers().forEach(p => { p.hasVoted = false; p.receivedVotes = 0; });
+        this.readyPlayers.clear();
+        this.playerDrawings = {};
+        this.playerVotes = {};
+        // Reset round-specific player state (votes)
+        this.getPlayers().forEach(p => {
+            p.hasVoted = false;
+            p.receivedVotes = 0; // Reset votes received for the new round
+        });
         console.log(`Lobby ${this.lobbyId}: Drawing phase started. Word: ${this.currentWord}`);
-        this.currentTimerDuration = DRAW_TIME_SECONDS; this.currentTimerStart = Date.now();
-        this.broadcastGameState();
+        this.currentTimerDuration = DRAW_TIME_SECONDS;
+        this.currentTimerStart = Date.now();
+        this.broadcastGameState(); // Broadcast state *before* round start event
         this.broadcastToLobby('round start', { word: this.currentWord, duration: this.currentTimerDuration });
         if (this.roundTimer) clearTimeout(this.roundTimer);
         this.roundTimer = setTimeout(this.startVotingPhase.bind(this), this.currentTimerDuration * 1000);
@@ -105,29 +123,54 @@ class GameManager {
     }
 
     startVotingPhase() {
+        if (this.gamePhase !== 'DRAWING') return; // Prevent accidental transitions
+
+        // Ensure all players who didn't submit are marked as ready (with no drawing)
+        this.getPlayers().forEach(p => {
+            if (!this.readyPlayers.has(p.id)) {
+                console.log(`Lobby ${this.lobbyId}: Player ${p.name} did not submit drawing in time.`);
+                // Don't add to playerDrawings, they just can't be voted for
+            }
+        });
+
         this.gamePhase = 'VOTING';
         console.log(`Lobby ${this.lobbyId}: Voting phase started.`);
-        this.getPlayers().forEach(p => { p.hasVoted = false; }); this.playerVotes = {};
-        this.currentTimerDuration = VOTE_TIME_SECONDS; this.currentTimerStart = Date.now();
-        this.broadcastGameState(); // State includes drawings
+        this.getPlayers().forEach(p => { p.hasVoted = false; }); // Reset vote status
+        this.playerVotes = {}; // Clear previous votes
+        this.currentTimerDuration = VOTE_TIME_SECONDS;
+        this.currentTimerStart = Date.now();
+        this.broadcastGameState(); // State includes drawings submitted
         this.broadcastToLobby('voting start', { duration: this.currentTimerDuration });
         if (this.roundTimer) clearTimeout(this.roundTimer);
         this.roundTimer = setTimeout(this.startResultsPhase.bind(this), this.currentTimerDuration * 1000);
     }
 
     startResultsPhase() {
+        if (this.gamePhase !== 'VOTING') return; // Prevent accidental transitions
+
         this.gamePhase = 'RESULTS';
-        this.currentTimerDuration = 0; this.currentTimerStart = 0;
+        this.currentTimerDuration = 0;
+        this.currentTimerStart = 0;
         console.log(`Lobby ${this.lobbyId}: Results phase started.`);
-        // Calculate scores
-        this.getPlayers().forEach(p => { p.receivedVotes = 0; });
+
+        // Calculate scores based on votes received
+        this.getPlayers().forEach(p => { p.receivedVotes = 0; }); // Reset vote counts first
         Object.values(this.playerVotes).forEach(votedForId => {
             const votedPlayer = this.getPlayers().get(votedForId);
-            if (votedPlayer) { votedPlayer.receivedVotes++; }
+            if (votedPlayer) {
+                votedPlayer.receivedVotes = (votedPlayer.receivedVotes || 0) + 1;
+            }
         });
-        this.getPlayers().forEach(p => { p.score = (p.score || 0) + p.receivedVotes; });
-        this.broadcastGameState(); // State includes scores/results
+
+        // Award points (e.g., 1 point per vote)
+        this.getPlayers().forEach(p => {
+            p.score = (p.score || 0) + (p.receivedVotes || 0);
+        });
+
+        this.broadcastGameState(); // State includes final scores/results for the round
         if (this.roundTimer) clearTimeout(this.roundTimer);
+        // Decide whether to start next round or go back to lobby
+        // For now, always go back to lobby after results
         this.roundTimer = setTimeout(this.goToLobby.bind(this), RESULTS_TIME_SECONDS * 1000);
     }
 
@@ -142,58 +185,96 @@ class GameManager {
         // Scores persist on the player objects in the Lobby instance
         this.broadcastGameState(); // Broadcast the LOBBY state for this game instance
         // The Lobby instance itself doesn't change phase here, only the game within it
-        // The Lobby might decide to auto-start again if conditions met
         if (this.lobby) {
-            this.lobby.attemptAutoStartGame(); // Check if lobby should restart game
+            this.lobby.attemptAutoStartGame(); // Check if lobby should restart game (currently disabled)
         }
     }
 
-    // --- Event Handlers (Called by Lobby instance) ---
-    // Note: handleConnection and handleDisconnect are removed
+    // --- Event Handlers (Called by Lobby instance via server.js forwarder) ---
 
     handleChatMessage(socket, msg) {
-        // Game chat could be different from lobby chat if needed, but currently same
+        // Game chat could be different from lobby chat if needed
         if (!this.lobby?.players?.has(socket.id) || typeof msg !== 'string' || msg.trim().length === 0) return;
         const senderName = this.getPlayerName(socket.id);
-        const cleanMsg = msg.substring(0, 100);
+        const cleanMsg = msg.substring(0, 100); // Limit message length
+
+        // Basic word checking (example - needs refinement)
+        let isCorrectGuess = false;
+        if (this.currentWord && cleanMsg.toLowerCase().trim() === this.currentWord.toLowerCase()) {
+            isCorrectGuess = true;
+            // Handle correct guess logic (e.g., award points, notify others)
+            // For now, just mark the message
+            console.log(`Lobby ${this.lobbyId}: Correct guess by ${senderName}!`);
+            this.broadcastToLobby('system message', `${senderName} guessed the word!`);
+            // Prevent further guesses? Or allow multiple? TBD.
+        }
+
         console.log(`Lobby ${this.lobbyId} (Game Chat): ${senderName}: ${cleanMsg}`);
-        this.broadcastToLobby('chat message', { senderName: senderName, text: cleanMsg });
+        this.broadcastToLobby('chat message', {
+            senderName: senderName,
+            senderColor: this.lobby.players.get(socket.id)?.color,
+            text: cleanMsg,
+            isCorrectGuess: isCorrectGuess // Add flag for UI styling
+        });
     }
 
     handlePlayerReady(socket, drawingDataUrl) {
         if (this.gamePhase === 'DRAWING' && this.lobby?.players?.has(socket.id) && !this.readyPlayers.has(socket.id)) {
-            if (drawingDataUrl && typeof drawingDataUrl === 'string' && drawingDataUrl.startsWith('data:image/png;base64,') && drawingDataUrl.length < 500000) {
+            // Validate Data URL (basic check)
+            if (drawingDataUrl && typeof drawingDataUrl === 'string' && drawingDataUrl.startsWith('data:image/png;base64,') && drawingDataUrl.length < 1000000) { // Increased limit slightly to 1MB
                  this.playerDrawings[socket.id] = drawingDataUrl;
                  this.readyPlayers.add(socket.id);
-                 console.log(`Lobby ${this.lobbyId}: ${this.getPlayerName(socket.id)} is ready.`);
+                 console.log(`Lobby ${this.lobbyId}: ${this.getPlayerName(socket.id)} is ready with drawing.`);
+                 socket.emit('system message', 'Drawing submitted successfully!'); // Feedback to player
                  this.checkEndDrawingPhase();
             } else {
-                 console.warn(`Lobby ${this.lobbyId}: Invalid drawing data from ${socket.id}. Size: ${drawingDataUrl?.length}`);
-                 socket.emit('system message', 'Error submitting drawing. Please try again.');
+                 console.warn(`Lobby ${this.lobbyId}: Invalid or missing drawing data from ${socket.id}. Size: ${drawingDataUrl?.length}`);
+                 socket.emit('system message', 'Error submitting drawing. It might be too large or invalid.');
             }
+        } else if (this.gamePhase !== 'DRAWING') {
+             console.warn(`Lobby ${this.lobbyId}: Player ${socket.id} sent 'ready' outside of DRAWING phase.`);
+             socket.emit('system message', 'Cannot submit drawing now.');
+        } else if (this.readyPlayers.has(socket.id)) {
+             console.warn(`Lobby ${this.lobbyId}: Player ${socket.id} sent 'ready' multiple times.`);
+             socket.emit('system message', 'You have already submitted your drawing.');
         }
     }
 
     handleSubmitVote(socket, votedForId) {
          if (this.gamePhase === 'VOTING' && this.lobby?.players?.has(socket.id)) {
              const voter = this.lobby.players.get(socket.id);
-             if (voter.hasVoted) return; // Prevent double voting
+             if (!voter) return; // Should not happen
+
+             if (voter.hasVoted) {
+                 socket.emit('vote error', "You have already voted.");
+                 return; // Prevent double voting
+             }
 
              if (votedForId === socket.id) {
-                 socket.emit('vote error', "You cannot vote for yourself."); return;
+                 socket.emit('vote error', "You cannot vote for yourself.");
+                 return;
              }
-             // Check if the player being voted for exists and submitted a drawing
+             // Check if the player being voted for exists AND submitted a drawing
              if (!this.lobby.players.has(votedForId) || !this.playerDrawings[votedForId]) {
-                  socket.emit('vote error', "Invalid player/drawing voted for."); return;
+                  socket.emit('vote error', "Invalid player or drawing voted for.");
+                  return;
              }
+
              console.log(`Lobby ${this.lobbyId}: ${this.getPlayerName(socket.id)} voted for ${this.getPlayerName(votedForId)}`);
              voter.hasVoted = true; // Mark voter
-             this.playerVotes[socket.id] = votedForId;
+             this.playerVotes[socket.id] = votedForId; // Store vote { voterId: votedForId }
              socket.emit('vote accepted');
+
              // Optional: Check if all players have voted to end phase early
-             // const totalPlayers = this.getPlayers().size;
-             // const totalVotes = Object.keys(this.playerVotes).length;
-             // if (totalVotes === totalPlayers && totalPlayers > 0) { ... end voting early ... }
+             const totalPlayers = this.getPlayers().size;
+             const totalVotes = Object.keys(this.playerVotes).length;
+             if (totalVotes === totalPlayers && totalPlayers > 0) {
+                 console.log(`Lobby ${this.lobbyId}: All players have voted, ending voting phase early.`);
+                 if (this.roundTimer) clearTimeout(this.roundTimer);
+                 this.startResultsPhase();
+             }
+         } else if (this.gamePhase !== 'VOTING') {
+             socket.emit('vote error', "Voting is not active.");
          }
     }
 }
