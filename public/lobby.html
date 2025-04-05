@@ -33,8 +33,6 @@
                 <button class="tool-button" data-tool="fill" title="Fill">💧</button>
                 <button class="tool-button" data-tool="rectangle" title="Rectangle Tool">□</button>
                 <button class="tool-button" data-tool="ellipse" title="Ellipse Tool">○</button>
-
-                <!-- NEW Text Button -->
                 <button class="tool-button" data-tool="text" title="Text Tool">T</button>
 
                 <!-- Color Picker, Line Width, etc. -->
@@ -51,6 +49,14 @@
                 <button class="tool-button" id="undo-btn" title="Undo Last Action">↩️</button>
                 <button class="tool-button" id="clear-canvas-btn" title="Clear Entire Canvas">🗑️</button>
             </div>
+
+            <!-- AI Feature Area -->
+            <div id="ai-feature-area">
+                <button id="ask-ai-btn" title="Ask AI to interpret the drawing (Host only)">Ask AI</button>
+                <input type="text" id="ai-interpretation-box" readonly placeholder="AI interpretation will appear here...">
+            </div>
+            <!-- End AI Feature Area -->
+
         </div>
 
         <!-- Chat Area -->

@@ -1,9 +1,10 @@
 // server/lobby.js
 import GameManager from './gameManager.js';
 import { getRandomColor } from './utils.js';
+import { interpretImage } from './aiService.js'; // --- NEW AI Import ---
 
 const MAX_PLAYERS_PER_LOBBY = 4;
-const MIN_PLAYERS_TO_START = 1;
+const MIN_PLAYERS_TO_START = 1; // Changed back to 1 for easier testing
 
 class Lobby {
     constructor(id, io, lobbyManager) {
@@ -20,8 +21,14 @@ class Lobby {
         this.lobbyChatHistory = [];
         this.lobbyCanvasCommands = [];
         this.maxLobbyCommands = 1000;
+
+        // --- NEW: AI Request Cooldown ---
+        this.lastAiRequestTime = 0;
+        this.aiRequestCooldownMs = 10000; // 10 seconds cooldown
+        // --- End NEW ---
     }
 
+    // ... existing methods (addPlayer, removePlayer, etc.) ...
     addPlayer(socket, username, isHost = false) {
         // If already in the lobby map, ignore
         if (this.players.has(socket.id)) {
@@ -189,6 +196,7 @@ class Lobby {
         socket.removeAllListeners('submit vote');
         socket.removeAllListeners('chat message');
         socket.removeAllListeners('undo last draw');
+        socket.removeAllListeners('request ai interpretation'); // Also remove AI listener
     }
 
     handleLobbyChatMessage(socket, msg) {
@@ -223,8 +231,7 @@ class Lobby {
                     typeof drawCommand.x1 === 'number' &&
                     typeof drawCommand.y1 === 'number' &&
                     typeof drawCommand.size === 'number' &&
-                    // color can be null if eraser
-                    (typeof drawCommand.color === 'string' || drawCommand.color === null) &&
+                    (typeof drawCommand.color === 'string' || drawCommand.color === null || drawCommand.color === CANVAS_BACKGROUND_COLOR) && // Allow background color for eraser
                     typeof drawCommand.strokeId === 'string';
                 break;
 
@@ -236,17 +243,7 @@ class Lobby {
                 break;
 
             case 'rect':
-                isValid =
-                    typeof drawCommand.x0 === 'number' &&
-                    typeof drawCommand.y0 === 'number' &&
-                    typeof drawCommand.x1 === 'number' &&
-                    typeof drawCommand.y1 === 'number' &&
-                    typeof drawCommand.color === 'string' &&
-                    typeof drawCommand.size === 'number';
-                break;
-
             case 'ellipse':
-                // same style as rect, but user is sending x0,y0,x1,y1
                 isValid =
                     typeof drawCommand.x0 === 'number' &&
                     typeof drawCommand.y0 === 'number' &&
@@ -280,7 +277,6 @@ class Lobby {
         }
 
         if (commandWithPlayer.type === 'clear') {
-            // remove all commands from this socket
             const removedCmdIds = [];
             const initialLen = this.lobbyCanvasCommands.length;
             this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => {
@@ -311,46 +307,53 @@ class Lobby {
    handleUndoLastDraw(socket, data) {
         if (!this.players.has(socket.id)) return;
         const playerId = socket.id;
-        const { cmdId, strokeId } = data || {};
-        if (!cmdId && !strokeId) {
-            console.warn(`[Lobby ${this.id}] Undo request missing cmdId/strokeId from ${playerId}`);
+        const { cmdIds, strokeId } = data || {}; // Client now sends cmdIds OR strokeId
+
+        if (!cmdIds && !strokeId) {
+            console.warn(`[Lobby ${this.id}] Undo request missing cmdIds/strokeId from ${playerId}`);
             return;
         }
-        let commandsToRemove = [];
+
+        let removedCmdIds = [];
+        let removedStrokeId = null;
 
         if (strokeId) {
+            // Remove all commands matching the strokeId and playerId
             this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => {
                 if (cmd.strokeId === strokeId && cmd.playerId === playerId) {
-                    commandsToRemove.push(cmd.cmdId);
-                    return false;
+                    removedCmdIds.push(cmd.cmdId);
+                    return false; // Remove this command
                 }
-                return true;
+                return true; // Keep other commands
             });
-            if (commandsToRemove.length > 0) {
-                console.log(`[Lobby ${this.id}] Undo stroke=${strokeId}, removed ${commandsToRemove.length} commands from ${playerId}.`);
-                this.io.to(this.id).emit('lobby commands removed', {
-                    cmdIds: commandsToRemove,
-                    strokeId,
-                    playerId
-                });
+            if (removedCmdIds.length > 0) {
+                removedStrokeId = strokeId; // Confirm which stroke was removed
+                console.log(`[Lobby ${this.id}] Undo stroke=${strokeId}, removed ${removedCmdIds.length} commands from ${playerId}.`);
             }
-        } else if (cmdId) {
-            const index = this.lobbyCanvasCommands.findIndex(cmd => cmd.cmdId === cmdId);
-            if (index !== -1) {
-                const foundCmd = this.lobbyCanvasCommands[index];
-                if (foundCmd.playerId === playerId) {
-                    this.lobbyCanvasCommands.splice(index, 1);
-                    commandsToRemove.push(foundCmd.cmdId);
-                    console.log(`[Lobby ${this.id}] Undo single cmd=${foundCmd.cmdId} by ${playerId}`);
-                    this.io.to(this.id).emit('lobby commands removed', {
-                        cmdIds: commandsToRemove,
-                        strokeId: null,
-                        playerId
-                    });
-                } else {
-                    console.warn(`[Lobby ${this.id}] Player ${playerId} tried to undo cmd of another player?`);
+        } else if (cmdIds && Array.isArray(cmdIds) && cmdIds.length > 0) {
+            // Remove specific command IDs belonging to the player
+            const idsToRemoveSet = new Set(cmdIds);
+            this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => {
+                if (idsToRemoveSet.has(cmd.cmdId) && cmd.playerId === playerId) {
+                    removedCmdIds.push(cmd.cmdId);
+                    return false; // Remove this command
                 }
+                return true; // Keep other commands
+            });
+             if (removedCmdIds.length > 0) {
+                console.log(`[Lobby ${this.id}] Undo single command(s)=${removedCmdIds.join(',')} by ${playerId}`);
             }
+        }
+
+        // If any commands were actually removed, notify clients
+        if (removedCmdIds.length > 0) {
+            this.io.to(this.id).emit('lobby commands removed', {
+                cmdIds: removedCmdIds,
+                strokeId: removedStrokeId, // Send the strokeId if that's what was undone
+                playerId: playerId
+            });
+        } else {
+             console.warn(`[Lobby ${this.id}] Undo request from ${playerId} did not remove any commands for data:`, data);
         }
     }
 
@@ -371,6 +374,54 @@ class Lobby {
         this.io.to(this.id).emit('game starting', { lobbyId: this.id });
         setTimeout(() => this.gameManager.startGame(), 500);
     }
+
+    // --- NEW: AI Interpretation Handler ---
+    async handleRequestAiInterpretation(socket, imageDataUrl) {
+        if (!this.players.has(socket.id)) return; // Check if player is in lobby
+
+        // 1. Authorization: Only host can request
+        if (socket.id !== this.hostId) {
+            console.warn(`[Lobby ${this.id}] Non-host (${socket.id}) tried to request AI interpretation.`);
+            socket.emit('ai interpretation result', { error: "Only the host can ask the AI." });
+            return;
+        }
+
+        // 2. Cooldown Check
+        const now = Date.now();
+        if (now - this.lastAiRequestTime < this.aiRequestCooldownMs) {
+            const remaining = Math.ceil((this.aiRequestCooldownMs - (now - this.lastAiRequestTime)) / 1000);
+            console.log(`[Lobby ${this.id}] AI request throttled. Wait ${remaining}s.`);
+            socket.emit('ai interpretation result', { error: `Please wait ${remaining} seconds before asking again.` });
+            return;
+        }
+
+        // 3. Basic Data Validation (Server-side)
+        if (!imageDataUrl || typeof imageDataUrl !== 'string' || !imageDataUrl.startsWith('data:image/png;base64,') || imageDataUrl.length > 2 * 1024 * 1024) { // 2MB limit
+             console.warn(`[Lobby ${this.id}] Invalid image data received for AI request from ${socket.id}. Length: ${imageDataUrl?.length}`);
+             socket.emit('ai interpretation result', { error: "Invalid or too large image data." });
+             return;
+        }
+
+
+        console.log(`[Lobby ${this.id}] Host (${socket.id}) requested AI interpretation.`);
+        this.lastAiRequestTime = now; // Update timestamp *before* making the async call
+
+        try {
+            // 4. Call AI Service
+            const interpretation = await interpretImage(imageDataUrl);
+            // 5. Broadcast Result
+            this.io.to(this.id).emit('ai interpretation result', { interpretation });
+            console.log(`[Lobby ${this.id}] Broadcasted AI interpretation: "${interpretation}"`);
+        } catch (error) {
+            // 6. Broadcast Error
+            console.error(`[Lobby ${this.id}] AI interpretation failed:`, error);
+            // Send a generic error to clients, don't expose detailed internal errors
+            const clientError = typeof error === 'string' ? error : "The AI could not process the image.";
+            this.io.to(this.id).emit('ai interpretation result', { error: clientError });
+        }
+    }
+    // --- End NEW ---
+
 
     getPlayerCount() {
         return this.players.size;

@@ -30,6 +30,10 @@ const lineWidthSelector = document.getElementById('line-width-selector');
 const statusDisplay = document.getElementById('status');
 const lobbyTitleDisplay = document.getElementById('lobby-title-display');
 const undoBtn = document.getElementById('undo-btn');
+// --- NEW AI Elements ---
+const askAiBtn = document.getElementById('ask-ai-btn');
+const aiInterpretationBox = document.getElementById('ai-interpretation-box');
+// --- End NEW AI Elements ---
 
 // ---------------------------------
 
@@ -60,6 +64,8 @@ function initializeLobby() {
     setupSocketConnection(currentLobbyId, username);
     setupActionListeners();
     populateEmojiPicker();
+    // Initially disable AI button until host status is confirmed
+    if (askAiBtn) askAiBtn.disabled = true;
 }
 
 function setupSocketConnection(lobbyId, username) {
@@ -96,6 +102,7 @@ function setupSocketConnection(lobbyId, username) {
         if (startGameBtn) startGameBtn.style.display = 'none';
         if (playerCountDisplay) playerCountDisplay.textContent = '(0/?)';
         if (lobbyTitleDisplay) lobbyTitleDisplay.textContent = "Lobby";
+        if (askAiBtn) askAiBtn.disabled = true; // Disable AI button on disconnect
         CanvasManager.disableDrawing();
         hasJoined = false;
         myPlayerId = null;
@@ -110,6 +117,7 @@ function setupSocketConnection(lobbyId, username) {
             statusDisplay.style.color = 'red';
         }
         if (lobbyStatus) lobbyStatus.textContent = "Connection failed.";
+        if (askAiBtn) askAiBtn.disabled = true; // Disable AI button on error
         alert("Failed to connect. Please refresh.");
     });
 
@@ -142,7 +150,7 @@ function setupSocketConnection(lobbyId, username) {
         CanvasManager.loadAndDrawHistory(state.canvasCommands || []);
 
         isHost = (state.hostId === myPlayerId);
-        updateLobbyUI(state);
+        updateLobbyUI(state); // This will enable/disable AI button based on host status
         CanvasManager.enableDrawing();
     });
 
@@ -151,17 +159,16 @@ function setupSocketConnection(lobbyId, username) {
         PlayerListUI.updatePlayerList(players, myPlayerId);
         const me = players.find(p => p.id === myPlayerId);
         isHost = me ? me.isHost : false;
-        updateLobbyUI({ players });
+        updateLobbyUI({ players }); // This will enable/disable AI button based on host status
     });
 
     socket.on('lobby chat message', msgData => {
         ChatUI.addChatMessage(msgData, msgData.type || 'normal');
     });
 
-    // ***CHANGED***: We now pass data.playerId to removeCommands
-    socket.on('lobby commands removed', ({ cmdIds, strokeId, playerId }) => { // <-- CHANGED
+    socket.on('lobby commands removed', ({ cmdIds, strokeId, playerId }) => {
         console.log(`Received removal: cmdIds=${cmdIds}, strokeId=${strokeId}, player=${playerId}`);
-        CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId); // <-- CHANGED
+        CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId);
     });
 
     socket.on('lobby draw update', drawData => {
@@ -173,12 +180,13 @@ function setupSocketConnection(lobbyId, username) {
         isHost = true;
         ChatUI.addChatMessage({ text: "You are now the host.", type: 'system' });
         if (startGameBtn) startGameBtn.style.display = 'block';
-        updateLobbyUI({});
+        updateLobbyUI({}); // Update UI, including AI button state
     });
 
     socket.on('game starting', ({ lobbyId: confirmedLobbyId }) => {
         console.log(`Game starting for ${confirmedLobbyId}!`);
         if (startGameBtn) startGameBtn.disabled = true;
+        if (askAiBtn) askAiBtn.disabled = true; // Disable AI button when game starts
         CanvasManager.disableDrawing();
         ChatUI.addChatMessage({ text: "Game is starting...", type: 'system' });
         setTimeout(() => {
@@ -189,6 +197,22 @@ function setupSocketConnection(lobbyId, username) {
     socket.on('system message', message => {
         ChatUI.addChatMessage({ text: message, type: 'system' });
     });
+
+    // --- NEW: AI Interpretation Result Listener ---
+    socket.on('ai interpretation result', ({ interpretation, error }) => {
+        if (askAiBtn) askAiBtn.disabled = !isHost; // Re-enable if host
+        if (aiInterpretationBox) {
+            if (error) {
+                aiInterpretationBox.value = `Error: ${error}`;
+                aiInterpretationBox.style.color = 'red';
+            } else {
+                aiInterpretationBox.value = interpretation || "AI couldn't provide an interpretation.";
+                aiInterpretationBox.style.color = '#495057'; // Reset color
+            }
+            aiInterpretationBox.placeholder = "AI interpretation will appear here..."; // Reset placeholder
+        }
+    });
+    // --- End NEW ---
 }
 
 function handleDrawEvent(drawDetail) {
@@ -270,6 +294,48 @@ function setupActionListeners() {
             CanvasManager.setLineWidth(lineWidthSelector.value);
         }
     }
+
+    // --- NEW: AI Button Listener ---
+    if (askAiBtn) {
+        askAiBtn.addEventListener('click', () => {
+            if (!isHost) {
+                console.warn("Ask AI clicked by non-host.");
+                return;
+            }
+            if (!socket || !socket.connected) {
+                console.error("Cannot ask AI: Socket not connected.");
+                if (aiInterpretationBox) aiInterpretationBox.value = "Error: Not connected.";
+                return;
+            }
+
+            const imageDataUrl = CanvasManager.getDrawingDataURL();
+            if (!imageDataUrl) {
+                console.error("Could not get canvas data for AI.");
+                if (aiInterpretationBox) aiInterpretationBox.value = "Error: Could not capture drawing.";
+                return;
+            }
+
+            // Basic size check (OpenAI has limits, ~20MB, but also cost implications)
+            // Let's set a practical limit like 2MB base64 string length
+            if (imageDataUrl.length > 2 * 1024 * 1024) {
+                 console.error("Drawing image data too large for AI request:", imageDataUrl.length);
+                 if (aiInterpretationBox) aiInterpretationBox.value = "Error: Drawing is too large.";
+                 return;
+            }
+
+
+            console.log("Requesting AI interpretation...");
+            if (aiInterpretationBox) {
+                aiInterpretationBox.placeholder = "AI is thinking..."; // Show loading state
+                aiInterpretationBox.value = ""; // Clear previous value
+                aiInterpretationBox.style.color = '#6c757d'; // Reset color
+            }
+            askAiBtn.disabled = true; // Disable button while waiting
+
+            socket.emit('request ai interpretation', imageDataUrl);
+        });
+    }
+    // --- End NEW ---
 }
 
 // --------------
@@ -313,6 +379,12 @@ function updateLobbyUI(state) {
             startGameBtn.style.display = 'none';
         }
     }
+
+    // --- NEW: Enable/Disable AI Button ---
+    if (askAiBtn) {
+        askAiBtn.disabled = !isHost; // Only enable if the current player is the host
+    }
+    // --- End NEW ---
 }
 
 function populateEmojiPicker() {

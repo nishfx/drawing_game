@@ -205,7 +205,6 @@ body {
 /* --- Styles for Lobby Screen (lobby.html - served at /game/lobby) --- */
 #lobby-canvas-area {
     flex-grow: 1; display: flex; flex-direction: column; align-items: stretch;
-    /* padding: 15px; */ /* REMOVED PADDING */
     background-color: #f8f9fa; border-radius: 4px;
     border: 1px solid #dee2e6; margin: 0;
     min-width: 0;
@@ -214,16 +213,12 @@ body {
 #lobby-canvas {
     border: 1px solid #ccc; /* Keep border if desired */
     background-color: #fff;
-    /* margin-bottom: 10px; */ /* Remove margin, let flexbox handle spacing */
     touch-action: none;
     max-width: 100%;
     display: block;
     box-sizing: border-box; /* Include border in size */
-    /* Let flexbox handle sizing within the padding-less parent */
     width: 100%; /* Take full width of parent */
-    /* height: auto; Maintain aspect ratio */
     aspect-ratio: 600 / 450; /* width / height */
-    /* Remove max-height or adjust as needed */
     margin: 0; /* Explicitly remove margin */
     padding: 0; /* Explicitly remove padding */
 }
@@ -244,6 +239,55 @@ body {
 .tool-button.active { background-color: #007bff; color: white; border-color: #0056b3; }
 #lobby-drawing-tools input[type="color"] { height: 40px; width: 45px; padding: 2px; border: 1px solid #adb5bd; border-radius: 4px; cursor: pointer; vertical-align: middle; background-color: #fff; }
 #lobby-drawing-tools select { padding: 7px 10px; font-size: 0.9em; border: 1px solid #adb5bd; border-radius: 4px; height: 40px; vertical-align: middle; background-color: #fff; }
+
+/* --- NEW: AI Feature Area Styles --- */
+#ai-feature-area {
+    display: flex;
+    align-items: center; /* Vertically align button and text box */
+    gap: 10px; /* Space between button and text box */
+    padding: 10px; /* Padding around the AI elements */
+    margin-top: 5px; /* Space below drawing tools */
+    /* Ensure it aligns horizontally with the drawing tools */
+    /* The parent #lobby-canvas-area handles overall width */
+}
+
+#ask-ai-btn {
+    padding: 8px 15px;
+    font-size: 0.9em;
+    background-color: #6c757d; /* Secondary button color */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0; /* Prevent button from shrinking */
+}
+#ask-ai-btn:hover {
+    background-color: #5a6268;
+}
+#ask-ai-btn:disabled {
+    background-color: #adb5bd;
+    cursor: not-allowed;
+}
+
+#ai-interpretation-box {
+    flex-grow: 1; /* Take remaining horizontal space */
+    padding: 8px 10px;
+    font-size: 0.9em;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #e9ecef; /* Read-only background */
+    color: #495057;
+    min-width: 0; /* Allow shrinking */
+    box-sizing: border-box;
+    height: 36px; /* Match button height approx */
+    line-height: 1.5; /* Adjust for vertical centering */
+}
+#ai-interpretation-box::placeholder {
+    color: #6c757d;
+    font-style: italic;
+}
+/* --- End AI Feature Area Styles --- */
 
 
 /* Start Game Button Container */
@@ -335,6 +379,9 @@ body {
          max-width: none;
          height: 200px;
     }
+    #ai-feature-area {
+        padding: 8px; /* Adjust padding */
+    }
 }
 
 @media (max-width: 600px) {
@@ -362,5 +409,16 @@ body {
     .voting-option img {
         width: 150px;
         height: auto;
+    }
+    #ai-feature-area {
+        flex-direction: column; /* Stack button and text box */
+        align-items: stretch; /* Make them full width */
+        gap: 5px;
+    }
+    #ask-ai-btn {
+        width: 100%; /* Full width button */
+    }
+    #ai-interpretation-box {
+        width: 100%; /* Full width text box */
     }
 }
