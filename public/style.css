@@ -46,51 +46,42 @@ body {
     max-width: 1300px;
     gap: 20px; /* Consistent gap */
     align-items: stretch; /* Make columns equal height */
-    margin-bottom: 10px; /* Reduced margin below main layout */
+    /* margin-bottom: 10px; Remove margin, control space via lobby-controls */
 }
-
-/* NEW: Column for Player List Title and Box */
-#player-list-column {
-    display: flex;
-    flex-direction: column;
-    width: 260px; /* Set width on the column */
-    flex-shrink: 0; /* Prevent shrinking */
-}
-
-
-/* Style for moved Lobby Title */
-#lobby-title-display {
-    margin-top: 0;
-    margin-bottom: 5px; /* Small margin above player list box */
-    text-align: left;
-    font-size: 1.1em;
-    color: #000;
-    font-weight: normal;
-    padding-left: 5px;
-    flex-shrink: 0; /* Prevent title from shrinking */
-}
-
 
 /* Player list area (bordered box) */
 #player-list-area {
-    width: 100%; /* Take full width of column */
+    width: 260px; /* Set width directly */
     border: 1px solid #ccc;
     padding: 10px;
     background-color: #fff;
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    overflow: hidden; /* Hide internal overflow, list handles its own */
+    overflow: hidden;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    flex-grow: 1; /* Allow box to fill column height */
-    min-height: 0; /* Important for flex grow */
+    flex-shrink: 0; /* Prevent shrinking */
+    position: relative; /* Needed for absolute positioning of title if used */
+    padding-top: 35px; /* Make space for the title inside */
+}
+
+/* Style for Lobby Title (Positioned inside the top padding) */
+#lobby-title-display {
+    position: absolute; /* Position relative to player-list-area */
+    top: 8px; /* Adjust as needed */
+    left: 10px; /* Align with padding */
+    margin: 0; /* Reset margins */
+    text-align: left;
+    font-size: 1.1em;
+    color: #000;
+    font-weight: normal;
 }
 
 
 /* Style for Players heading and count */
 #player-list-area h3 {
-    margin-top: 0;
+    margin-top: 0; /* Reset margin */
     margin-bottom: 10px;
     text-align: center;
     font-size: 1.2em;
@@ -208,7 +199,8 @@ body {
     width: 100%;
     max-width: 1300px;
     text-align: center;
-    padding: 10px 0; /* Keep padding */
+    padding: 0; /* Remove padding */
+    margin-top: 10px; /* Control space above button */
 }
 #lobby-controls button#start-game-btn { padding: 12px 25px; font-size: 1.2em; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 4px; }
 #lobby-controls button#start-game-btn:hover { background-color: #218838; }
