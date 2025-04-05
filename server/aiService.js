@@ -38,7 +38,7 @@ export async function interpretImage(base64ImageData) {
                     {
                         role: "user",
                         content: [
-                            { type: "text", text: "Describe this drawing in German in one simple sentence in a surpring and funny way." },
+                            { type: "text", text: "Describe this drawing in German in one simple sentence in a surpring and funny way. Use irony and sarcasm and dark humour when possible." },
                             {
                                 type: "image_url",
                                 image_url: {
