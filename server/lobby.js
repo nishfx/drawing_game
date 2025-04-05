@@ -3,9 +3,7 @@ import GameManager from './gameManager.js';
 import { getRandomColor } from './utils.js';
 
 const MAX_PLAYERS_PER_LOBBY = 4;
-// --- Revert MIN_PLAYERS_TO_START back to 1 for testing ---
-const MIN_PLAYERS_TO_START = 1;
-// --- END Revert ---
+const MIN_PLAYERS_TO_START = 1; // For testing
 
 class Lobby {
     constructor(id, io, lobbyManager) {
@@ -18,15 +16,12 @@ class Lobby {
         this.gameManager = new GameManager(this.io, this.id);
         this.gameManager.setLobbyReference(this);
         this.lobbyChatHistory = [];
-        this.lobbyCanvasCommands = []; // Stores { cmdId, playerId, type, data... }
+        this.lobbyCanvasCommands = []; // Stores { cmdId, playerId, type, strokeId?, data... }
         this.maxLobbyCommands = 1000;
     }
 
     // --- Player Management ---
     addPlayer(socket, username, isHost = false) {
-        // Checks like isFull, isUsernameTakenByOther should ideally be done *before* calling addPlayer (as done in lobbyManager)
-        // This function now assumes those checks passed.
-
         const playerData = {
             id: socket.id, name: username, color: getRandomColor(),
             isHost: isHost, socket: socket, score: 0,
@@ -35,23 +30,17 @@ class Lobby {
         this.players.set(socket.id, playerData);
         socket.join(this.id);
 
-        if (isHost || !this.hostId) { // Ensure host is set if none exists
+        if (isHost || !this.hostId) {
              this.hostId = socket.id;
-             playerData.isHost = true; // Make sure the player data reflects host status
-             // If others exist, ensure they are not marked as host
-             this.players.forEach((p) => {
-                 if (p.id !== this.hostId) p.isHost = false;
-             });
+             playerData.isHost = true;
+             this.players.forEach((p) => { if (p.id !== this.hostId) p.isHost = false; });
         } else {
-            // Ensure this new player isn't marked as host if one already exists
             playerData.isHost = false;
         }
 
-
         console.log(`${username} (${socket.id}) added to lobby ${this.id}. Host: ${playerData.isHost}`);
-        this.sendLobbyState(socket); // Send full state to new player
-        this.broadcastLobbyPlayerList(); // Update list for others
-        // Join message broadcast handled by LobbyManager after slight delay
+        this.sendLobbyState(socket);
+        this.broadcastLobbyPlayerList();
         return true;
     }
 
@@ -71,16 +60,13 @@ class Lobby {
 
         const isGracePeriod = this.lobbyManager.recentlyCreated.has(this.id);
         if (!(wasOnlyPlayer && isGracePeriod)) {
-            console.log(`Broadcasting leave message for ${username}.`);
             this.broadcastSystemMessage(`${username} has left the lobby.`);
         } else {
             console.log(`Suppressing leave message for ${username} (only player leaving during grace period).`);
         }
 
-        // Promote new host *before* broadcasting list if needed
         let newHostPromoted = false;
         if (wasHost && this.players.size > 0) {
-            // Promote the player who joined earliest (first in Map iteration)
             const nextHostEntry = this.players.entries().next().value;
             if (nextHostEntry) {
                 const [nextHostId, nextHostData] = nextHostEntry;
@@ -95,34 +81,26 @@ class Lobby {
             }
         } else if (this.players.size === 0) {
             this.hostId = null;
-            console.log(`Lobby ${this.id} became empty.`);
         }
 
-        // Broadcast player list AFTER potential host promotion
         this.broadcastLobbyPlayerList();
 
-        // Check if game needs to stop due to insufficient players
-        // Use the constant MIN_PLAYERS_TO_START (now set to 1)
         if (this.gameManager.gamePhase !== 'LOBBY' && this.players.size < MIN_PLAYERS_TO_START && this.players.size > 0) {
              console.log(`Lobby ${this.id}: Not enough players (${this.players.size}/${MIN_PLAYERS_TO_START}), stopping game.`);
              this.gameManager.goToLobby();
         } else if (this.gameManager.gamePhase !== 'LOBBY' && this.players.size === 0) {
-             // If last player leaves during game, stop it immediately
              console.log(`Lobby ${this.id}: Last player left during game, stopping.`);
-             this.gameManager.goToLobby(); // This also clears timers etc.
+             this.gameManager.goToLobby();
         }
     }
 
     isFull() { return this.players.size >= this.maxPlayers; }
     isEmpty() { return this.players.size === 0; }
     isUsernameTaken(username) { return Array.from(this.players.values()).some(p => p.name.toLowerCase() === username.toLowerCase()); }
-    // Checks if username is taken by someone OTHER than the given socket ID
     isUsernameTakenByOther(username, ownSocketId) {
         const lowerUser = username.toLowerCase();
         for (const [id, player] of this.players.entries()) {
-            if (id !== ownSocketId && player.name.toLowerCase() === lowerUser) {
-                return true;
-            }
+            if (id !== ownSocketId && player.name.toLowerCase() === lowerUser) return true;
         }
         return false;
     }
@@ -135,9 +113,9 @@ class Lobby {
             players: Array.from(this.players.values(), p => ({ id: p.id, name: p.name, color: p.color, isHost: p.isHost, score: p.score || 0 })),
             hostId: this.hostId,
             chatHistory: this.lobbyChatHistory,
-            canvasCommands: this.lobbyCanvasCommands, // Send full command history
+            canvasCommands: this.lobbyCanvasCommands,
             gamePhase: this.gameManager.gamePhase,
-            minPlayers: MIN_PLAYERS_TO_START // Send the current min players setting
+            minPlayers: MIN_PLAYERS_TO_START
         };
         socket.emit('lobby state', state);
     }
@@ -148,8 +126,8 @@ class Lobby {
     }
 
      broadcastSystemMessage(message) {
-        const msgData = { text: message, type: 'system' }; // Add type hint
-        this.io.to(this.id).emit('lobby chat message', msgData); // Use lobby chat message for system messages too
+        const msgData = { text: message, type: 'system' };
+        this.io.to(this.id).emit('lobby chat message', msgData);
     }
 
     // --- Event Handling ---
@@ -183,7 +161,7 @@ class Lobby {
         const commandWithPlayer = { ...drawCommand, playerId: socket.id };
         let isValid = false;
         switch(drawCommand.type) {
-            case 'line': isValid = typeof drawCommand.x0 === 'number' && typeof drawCommand.y0 === 'number' && typeof drawCommand.x1 === 'number' && typeof drawCommand.y1 === 'number' && typeof drawCommand.size === 'number'; break;
+            case 'line': isValid = typeof drawCommand.x0 === 'number' && typeof drawCommand.y0 === 'number' && typeof drawCommand.x1 === 'number' && typeof drawCommand.y1 === 'number' && typeof drawCommand.size === 'number' && typeof drawCommand.strokeId === 'string'; break; // Check strokeId for lines
             case 'fill': isValid = typeof drawCommand.x === 'number' && typeof drawCommand.y === 'number' && typeof drawCommand.color === 'string'; break;
             case 'rect': isValid = typeof drawCommand.x0 === 'number' && typeof drawCommand.y0 === 'number' && typeof drawCommand.x1 === 'number' && typeof drawCommand.y1 === 'number' && typeof drawCommand.color === 'string' && typeof drawCommand.size === 'number'; break;
             case 'clear': isValid = true; break;
@@ -194,55 +172,72 @@ class Lobby {
         if (commandWithPlayer.type === 'clear') {
             console.log(`Lobby ${this.id}: Clearing canvas commands by ${socket.id}.`);
             this.lobbyCanvasCommands = [];
-            // Add the clear command itself to history so redraws work correctly
-            this.lobbyCanvasCommands.push(commandWithPlayer);
-            this.io.to(this.id).emit('lobby draw update', commandWithPlayer); // Broadcast clear
+            this.lobbyCanvasCommands.push(commandWithPlayer); // Add clear command itself
+            this.io.to(this.id).emit('lobby draw update', commandWithPlayer);
         } else {
             this.lobbyCanvasCommands.push(commandWithPlayer);
             if (this.lobbyCanvasCommands.length > this.maxLobbyCommands) { this.lobbyCanvasCommands.shift(); }
-            // Broadcast command to others in the lobby
             socket.to(this.id).emit('lobby draw update', commandWithPlayer);
         }
     }
 
-    handleUndoLastDraw(socket, data) { // Expect data = { cmdId: "..." }
+    // Modified to handle undo by strokeId or cmdId
+    handleUndoLastDraw(socket, data) {
         if (!this.players.has(socket.id)) return;
         const playerId = socket.id;
-        const cmdIdToUndo = data?.cmdId;
+        const { cmdId, strokeId } = data || {}; // Destructure received data
 
-        if (!cmdIdToUndo) {
-            console.warn(`Lobby ${this.id}: Received undo request from ${playerId} without cmdId.`);
+        if (!cmdId && !strokeId) {
+            console.warn(`Lobby ${this.id}: Received undo request from ${playerId} without cmdId or strokeId.`);
             return;
         }
 
-        // Find the command by ID in the main history
-        const commandIndex = this.lobbyCanvasCommands.findIndex(cmd => cmd.cmdId === cmdIdToUndo);
+        let commandsToRemove = [];
+        let initialLength = this.lobbyCanvasCommands.length;
 
-        if (commandIndex !== -1) {
-            // Verify the player requesting the undo actually owns the command
-            if (this.lobbyCanvasCommands[commandIndex].playerId === playerId) {
-                const removedCommand = this.lobbyCanvasCommands.splice(commandIndex, 1)[0];
-                console.log(`Lobby ${this.id}: Undoing command ${removedCommand.cmdId} by ${playerId}`);
-                // Broadcast that *this specific command* was removed
-                this.io.to(this.id).emit('lobby command removed', { cmdId: removedCommand.cmdId });
-            } else {
-                console.warn(`Lobby ${this.id}: Player ${playerId} attempted to undo command ${cmdIdToUndo} owned by ${this.lobbyCanvasCommands[commandIndex].playerId}.`);
-                // Optionally notify the player: socket.emit('system message', 'Cannot undo action by another player.');
+        if (strokeId) {
+            // Find all commands matching the strokeId AND playerId
+            this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => {
+                if (cmd.strokeId === strokeId && cmd.playerId === playerId) {
+                    commandsToRemove.push(cmd.cmdId); // Collect IDs to notify client
+                    return false; // Remove from history
+                }
+                return true; // Keep
+            });
+            if (commandsToRemove.length > 0) {
+                 console.log(`Lobby ${this.id}: Undoing stroke ${strokeId} (${commandsToRemove.length} commands) by ${playerId}`);
             }
+        } else if (cmdId) {
+            // Find the single command by cmdId
+            const commandIndex = this.lobbyCanvasCommands.findIndex(cmd => cmd.cmdId === cmdId);
+            if (commandIndex !== -1) {
+                // Verify ownership
+                if (this.lobbyCanvasCommands[commandIndex].playerId === playerId) {
+                    const removedCommand = this.lobbyCanvasCommands.splice(commandIndex, 1)[0];
+                    commandsToRemove.push(removedCommand.cmdId);
+                    console.log(`Lobby ${this.id}: Undoing command ${removedCommand.cmdId} by ${playerId}`);
+                } else {
+                    console.warn(`Lobby ${this.id}: Player ${playerId} attempted to undo command ${cmdId} owned by ${this.lobbyCanvasCommands[commandIndex].playerId}.`);
+                }
+            }
+        }
+
+        // If any commands were removed, notify clients
+        if (commandsToRemove.length > 0) {
+            this.io.to(this.id).emit('lobby commands removed', { cmdIds: commandsToRemove });
         } else {
-            console.log(`Lobby ${this.id}: Command ${cmdIdToUndo} requested for undo by ${playerId} not found in history (already undone or cleared?).`);
-            // Optionally notify the player: socket.emit('system message', 'Nothing to undo.');
+             console.log(`Lobby ${this.id}: No commands found to undo for player ${playerId} with data:`, data);
+             // Optionally notify the requesting player: socket.emit('system message', 'Nothing to undo.');
         }
     }
 
+
     handleStartGameRequest(socket) {
         if (socket.id !== this.hostId) { socket.emit('system message', 'Only host can start.'); return; }
-        // --- Check against MIN_PLAYERS_TO_START (now 1) ---
         if (this.players.size < MIN_PLAYERS_TO_START) {
             socket.emit('system message', `Need ${MIN_PLAYERS_TO_START} player(s) to start (currently ${this.players.size}).`);
             return;
         }
-        // --- END Check ---
         if (this.gameManager.gamePhase !== 'LOBBY') { socket.emit('system message', `Game already running.`); return; }
         console.log(`Host ${this.players.get(socket.id)?.name} starting game in lobby ${this.id}`);
         this.io.to(this.id).emit('game starting', { lobbyId: this.id });

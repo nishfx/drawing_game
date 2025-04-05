@@ -176,6 +176,15 @@ function setupSocketConnection(lobbyId, username) {
         CanvasManager.removeCommandById(cmdId);
     });
 
+    // Example update in lobbyClient.js (inside setupSocketConnection)
+    socket.on('lobby commands removed', ({ cmdIds }) => { // Expect an array
+        if (cmdIds && cmdIds.length > 0) {
+            console.log(`Received removal for commands: ${cmdIds.join(', ')}`);
+            // Use the updated removeCommands function in CanvasManager
+            CanvasManager.removeCommands(cmdIds);
+        }
+    });
+
     socket.on('promoted to host', () => {
         console.log("Promoted to host!");
         isHost = true;
