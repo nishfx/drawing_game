@@ -118,15 +118,13 @@ export function disableDrawing() {
 }
 
 /**
- * Previously this wiped the entire canvas for everyone.
- * Now it just removes **our** lines from *all* clients’ canvases.
- * We remove only our own commands locally, then emit “clear” so the server
- * can remove only our commands from the global list.
+ * “Clear” now removes *only your own* lines locally, then emits “clear” so
+ * the server does likewise. It no longer wipes everyone’s drawings.
  */
 export function clearCanvas(emitEvent = true) {
     if (!context || !canvas) return;
 
-    // 1) Remove my own commands from local history
+    // Remove only my commands from local history
     const myCmdIds = [];
     fullDrawHistory.forEach(cmd => {
         if (cmd.playerId === myPlayerId) {
@@ -140,10 +138,9 @@ export function clearCanvas(emitEvent = true) {
     console.log("Locally removed all my lines (clear). Redrawing...");
     redrawCanvasFromHistory(); // Repaint after removing my lines
 
-    // 2) Let server know
+    // Let server know
     if (emitEvent && emitDrawCallback && myPlayerId) {
         const cmdId = generateCommandId();
-        // Minimal command: just type=clear
         const command = {
             cmdId,
             type: 'clear'
@@ -232,7 +229,6 @@ function clearHistory() {
  */
 export function loadAndDrawHistory(commands) {
     console.log(`Loading ${commands.length} commands from history.`);
-    // We do NOT want to do a full wipe that kills others' lines; just forcibly re-init.
     context.fillStyle = CANVAS_BACKGROUND_COLOR;
     context.fillRect(0, 0, canvas.width, canvas.height);
     clearHistory();
@@ -364,9 +360,7 @@ function executeCommand(cmd, ctx) {
             floodFill(ctx, Math.round(cmd.x), Math.round(cmd.y), cmd.color);
             break;
         case 'clear':
-            // We do *nothing* here for "clear" because we're not globally wiping.
-            // "clear" logic now is purely about removing the user's commands
-            // and broadcasting that removal. So no direct paint action needed.
+            // We do nothing for "clear" because we remove lines from history instead.
             break;
         default:
             console.warn("Unknown command type during redraw:", cmd.type);
@@ -383,8 +377,8 @@ export function drawExternalCommand(data) {
     }
 
     if (data.type === 'clear') {
-        // A “clear” from someone else means they removed *their* lines from history,
-        // not ours. The server will send “lobby commands removed” to actually remove them.
+        // “clear” from another user means they removed *their* lines;
+        // The server will issue “lobby commands removed” to actually update.
         return;
     }
 
@@ -733,9 +727,17 @@ function handleMouseUp(e) {
         }
     } else if (toolUsed === 'pencil' || toolUsed === 'eraser') {
         if (wasDrawing) {
-            if (x !== lastX || y !== lastY) {
-                drawLocalSegment(lastX, lastY, x, y);
-                emitDrawSegment(lastX, lastY, x, y);
+            // If we never moved, create a tiny stroke to form a dot
+            if (x === lastX && y === lastY) {
+                // draw a minuscule line for a dot
+                drawLocalSegment(x, y, x + 0.01, y + 0.01);
+                emitDrawSegment(x, y, x + 0.01, y + 0.01);
+            } else {
+                // else finalize the last line segment
+                if (x !== lastX || y !== lastY) {
+                    drawLocalSegment(lastX, lastY, x, y);
+                    emitDrawSegment(lastX, lastY, x, y);
+                }
             }
             context.closePath();
         }

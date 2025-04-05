@@ -3,7 +3,7 @@
 // Updated list with more saturated/darker colors
 const playerColors = [
     "#E63946", // Red
-    "#1D3557", // Dark Blue
+    "#1255ba", // Blue
     "#2A9D8F", // Teal Green
     "#F4A261", // Dark Orange/Sandy Brown
     "#6A0DAD", // Purple
