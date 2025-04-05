@@ -48,7 +48,7 @@ export async function interpretImage(base64ImageData) {
                         ],
                     },
                 ],
-                max_tokens: 20, // Limit response length
+                max_tokens: 30, // Limit response length
             });
 
             console.log("[AI Service] Received response from OpenAI.");
