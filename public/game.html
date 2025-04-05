@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drawing Game</title>
-    <!-- Add /game prefix -->
     <link rel="stylesheet" href="/game/style.css">
 </head>
 <body>
-    <h1>Drawing Game</h1>
+    <h1>Drawing Game - <span id="game-mode-display">Artist PvP</span></h1> <!-- Display mode -->
     <p>Status: <span id="status">Connecting...</span></p>
     <p id="game-status">Waiting for game to start...</p>
+    <p id="round-display" style="font-weight: bold;"></p> <!-- Display round -->
 
     <!-- Timer Progress Bar -->
     <div id="timer-container" style="display: none;">
@@ -26,37 +26,46 @@
 
         <div id="game-area-wrapper">
             <div id="word-display-area">
-                <span id="word-hint"></span> <!-- Word shown here -->
+                <span id="word-hint">Your word will appear here...</span>
             </div>
 
              <!-- Phase-Specific Areas -->
-            <div id="voting-area" style="display: none; padding: 15px; border-bottom: 1px solid #ccc; background-color: #f8f8f8;">
-                <!-- Voting options added by uiManager.js -->
+            <div id="results-area" style="display: none; padding: 15px; border-bottom: 1px solid #ccc; background-color: #f8f8f8; overflow-y: auto;">
+                <h3 id="results-title">Round Results</h3> <!-- Title can change -->
+                <div id="results-content"></div>
             </div>
-            <div id="results-area" style="display: none; padding: 15px; border-bottom: 1px solid #ccc; background-color: #f8f8f8;">
-                <!-- Results added by uiManager.js -->
+
+            <div id="evaluation-area" style="display: none; padding: 15px; border-bottom: 1px solid #ccc; background-color: #f0f0f0; text-align: center; font-style: italic;">
+                <!-- Content set by JS -->
             </div>
+
+            <!-- NEW: Manual Rating Area -->
+            <div id="manual-rating-area" style="display: none; padding: 15px; border-bottom: 1px solid #ccc; background-color: #e9ecef; overflow-y: auto;">
+                 <h3>Rate the Drawings (Host)</h3>
+                 <div id="rating-grid">
+                     <!-- Drawings + Rate buttons added by JS -->
+                 </div>
+            </div>
+            <!-- End Manual Rating Area -->
 
 
             <div id="game-area">
-                <!-- Wrap canvas and controls -->
-                <div id="drawing-controls">
-                    <!-- NOTE: Game canvas does not have tools, only drawing/ready -->
+                <!-- Canvas for local player drawing -->
+                <div id="drawing-controls" style="display: none;"> <!-- Hide initially -->
                     <canvas id="drawing-canvas" width="800" height="600"></canvas>
-                    <button id="ready-button" style="display: none; margin-top: 10px; padding: 10px 20px; cursor: pointer;">Ready</button>
+                    <button id="ready-button" style="display: none; margin-top: 10px; padding: 10px 20px; cursor: pointer;">Submit Drawing</button>
                 </div>
 
                 <div id="chat-area">
                     <ul id="messages"></ul>
                     <form id="chat-form" action="">
-                        <input id="chat-input" autocomplete="off" placeholder="Type guess or message..." /><button type="submit">Send</button>
+                        <input id="chat-input" autocomplete="off" placeholder="Type message..." /><button type="submit">Send</button>
                     </form>
                 </div>
             </div>
         </div> <!-- End game-area-wrapper -->
     </div> <!-- End main-layout -->
 
-    <!-- Adjust paths for JS - Add /game prefix -->
     <script src="/game/socket.io/socket.io.js"></script>
     <script src="/game/js/gameClient.js" type="module"></script>
 </body>

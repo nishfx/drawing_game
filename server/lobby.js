@@ -1,10 +1,11 @@
 // server/lobby.js
-import GameManager from './gameManager.js';
+import ArtistPvpGame from './modes/artistPvpGame.js'; // Default mode for now
+// import OtherGameMode from './modes/otherGameMode.js'; // Example for future
 import { getRandomColor } from './utils.js';
-import { interpretImage } from './aiService.js'; // --- NEW AI Import ---
+import { interpretImage } from './aiService.js';
 
 const MAX_PLAYERS_PER_LOBBY = 4;
-const MIN_PLAYERS_TO_START = 1; // Changed back to 1 for easier testing
+const MIN_PLAYERS_TO_START = 1; // Keep low for testing
 
 class Lobby {
     constructor(id, io, lobbyManager) {
@@ -15,24 +16,31 @@ class Lobby {
         this.hostId = null;
         this.maxPlayers = MAX_PLAYERS_PER_LOBBY;
 
-        this.gameManager = new GameManager(this.io, this.id);
-        this.gameManager.setLobbyReference(this);
+        // --- Game Settings ---
+        this.settings = {
+            gameMode: 'ArtistPvp', // Default mode
+            totalRounds: 3,
+            drawTime: 90,
+            // Add other mode-specific settings here later
+        };
+        // ---
+
+        // Game manager instance (will be replaced on game start)
+        this.gameManager = null; // Start with no game manager
 
         this.lobbyChatHistory = [];
         this.lobbyCanvasCommands = [];
         this.maxLobbyCommands = 1000;
 
-        // --- NEW: AI Request Cooldown ---
         this.lastAiRequestTime = 0;
-        this.aiRequestCooldownMs = 10000; // 10 seconds cooldown
-        // --- End NEW ---
+        this.aiRequestCooldownMs = 10000;
     }
 
-    // ... existing methods (addPlayer, removePlayer, etc.) ...
-    addPlayer(socket, username, isHost = false) {
-        // If already in the lobby map, ignore
+    // --- Player Management --- (addPlayer, removePlayer - slight changes)
+     addPlayer(socket, username, isHost = false) {
         if (this.players.has(socket.id)) {
             console.warn(`[Lobby ${this.id}] addPlayer: socket already present: ${socket.id}`);
+            return false;
         }
 
         const playerData = {
@@ -42,8 +50,6 @@ class Lobby {
             isHost: isHost,
             socket: socket,
             score: 0,
-            hasVoted: false,
-            receivedVotes: 0
         };
         this.players.set(socket.id, playerData);
         socket.join(this.id);
@@ -56,304 +62,201 @@ class Lobby {
             });
         }
 
-        console.log(`[Lobby ${this.id}] ${username} (${socket.id}) added. Host? ${playerData.isHost}`);
+        console.log(`[Lobby ${this.id}] ${username} (${socket.id}) added. Host? ${playerData.isHost}. Players: ${this.players.size}`);
 
-        // Immediately broadcast “X has joined the lobby.”
         this.broadcastSystemMessage(`${username} has joined the lobby.`);
-
-        this.sendLobbyState(socket);
+        this.sendLobbyState(socket); // Send lobby state (includes settings)
         this.broadcastLobbyPlayerList();
+
+        // If a game is *already* running, send the game state to the joining player
+        if (this.gameManager && this.gameManager.gamePhase !== 'LOBBY') {
+             this.gameManager.broadcastGameState(); // Send to all (including new player)
+             // Send player their specific word if drawing phase (if applicable to mode)
+             if(this.gameManager.gamePhase === 'DRAWING' && typeof this.gameManager.sendPlayerSpecificState === 'function') {
+                 this.gameManager.sendPlayerSpecificState(socket.id);
+             }
+        }
         return true;
     }
 
-    removePlayer(socket, opts = {}) {
-        // opts.silent => skip “XYZ has left the lobby.”
-        const playerData = this.players.get(socket.id);
-        if (!playerData) {
-            console.log(`[Lobby ${this.id}] removePlayer: not found: ${socket.id}`);
-            return;
-        }
+     removePlayer(socket, opts = {}) {
+        const socketId = socket.id;
+        const playerData = this.players.get(socketId);
+        if (!playerData) return;
+
         const username = playerData.name;
         const wasHost = playerData.isHost;
-        const wasOnlyPlayer = (this.players.size === 1);
+        console.log(`[Lobby ${this.id}] Removing player ${username} (${socketId}). Players before: ${this.players.size}`);
+        this.players.delete(socketId);
+        try { socket.leave(this.id); } catch (e) { console.warn(`[Lobby ${this.id}] Error leaving room for ${socketId}: ${e.message}`); }
 
-        console.log(`[Lobby ${this.id}] Removing player ${username} (${socket.id}).`);
-        this.players.delete(socket.id);
-        socket.leave(this.id);
+        // Remove lobby commands
+        this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => cmd.playerId !== socketId);
 
-        // Remove player's commands
-        const initialCount = this.lobbyCanvasCommands.length;
-        this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => cmd.playerId !== socket.id);
-        console.log(`[Lobby ${this.id}] Removed ${initialCount - this.lobbyCanvasCommands.length} commands for ${username}.`);
-
-        // Only broadcast “left” if not silent
-        if (!opts.silent) {
-            // If the lobby was just created & is empty, we skip the message
-            this.broadcastSystemMessage(`${username} has left the lobby.`);
+        // Notify game manager if game is running
+        if (this.gameManager && this.gameManager.gamePhase !== 'LOBBY') {
+            this.gameManager.handlePlayerDisconnect(socketId);
         }
 
+        if (!opts.silent) { this.broadcastSystemMessage(`${username} has left the lobby.`); }
+
+        // Promote new host
         if (wasHost && this.players.size > 0) {
             const nextHostEntry = this.players.entries().next().value;
             if (nextHostEntry) {
                 const [nextHostId, nextHostData] = nextHostEntry;
                 this.hostId = nextHostId;
                 nextHostData.isHost = true;
-                console.log(`[Lobby ${this.id}] Host left. New host: ${nextHostData.name}`);
                 this.broadcastSystemMessage(`${nextHostData.name} is now the host.`);
-                if (nextHostData.socket) {
-                    nextHostData.socket.emit('promoted to host');
-                }
-            } else {
-                this.hostId = null;
-                console.error(`[Lobby ${this.id}] Host left but no next host?`);
-            }
-        } else if (this.players.size === 0) {
-            this.hostId = null;
-            console.log(`[Lobby ${this.id}] Became empty.`);
-        }
+                if (nextHostData.socket) nextHostData.socket.emit('promoted to host');
+            } else { this.hostId = null; }
+        } else if (this.players.size === 0) { this.hostId = null; }
 
         this.broadcastLobbyPlayerList();
-
-        if (this.gameManager.gamePhase !== 'LOBBY') {
-            if (this.players.size < MIN_PLAYERS_TO_START && this.players.size > 0) {
-                console.log(`[Lobby ${this.id}] Not enough players, stopping game.`);
-                this.gameManager.goToLobby();
-            } else if (this.players.size === 0) {
-                console.log(`[Lobby ${this.id}] Last player left, stopping game.`);
-                this.gameManager.goToLobby();
-            }
-        }
+        console.log(`[Lobby ${this.id}] Player removed. Players after: ${this.players.size}`);
     }
 
-    isFull() {
-        return this.players.size >= this.maxPlayers;
-    }
-    isEmpty() {
-        return this.players.size === 0;
-    }
+    // ... isFull, isEmpty, isUsernameTaken, isUsernameTakenByOther, getHostName ... (keep as is)
+    isFull() { return this.players.size >= this.maxPlayers; }
+    isEmpty() { return this.players.size === 0; }
+    isUsernameTaken(username) { return Array.from(this.players.values()).some(p => p.name.toLowerCase() === username.toLowerCase()); }
+    isUsernameTakenByOther(username, ownSocketId) { const lower = username.toLowerCase(); for (const [id, p] of this.players.entries()) { if (id !== ownSocketId && p.name.toLowerCase() === lower) return true; } return false; }
+    getHostName() { const host = this.players.get(this.hostId); return host ? host.name : 'N/A'; }
 
-    isUsernameTaken(username) {
-        return Array.from(this.players.values()).some(p => p.name.toLowerCase() === username.toLowerCase());
-    }
 
-    isUsernameTakenByOther(username, ownSocketId) {
-        const lower = username.toLowerCase();
-        for (const [id, p] of this.players.entries()) {
-            if (id !== ownSocketId && p.name.toLowerCase() === lower) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    getHostName() {
-        const host = this.players.get(this.hostId);
-        return host ? host.name : 'N/A';
-    }
-
+    // --- State and Broadcasting ---
     sendLobbyState(socket) {
+        // Sends LOBBY state (shared canvas, chat, settings)
         const state = {
             lobbyId: this.id,
-            players: Array.from(this.players.values()).map(p => ({
-                id: p.id,
-                name: p.name,
-                color: p.color,
-                isHost: p.isHost,
-                score: p.score || 0
-            })),
+            players: Array.from(this.players.values(), p => ({ id: p.id, name: p.name, color: p.color, isHost: p.isHost, score: p.score || 0 })),
             hostId: this.hostId,
             chatHistory: this.lobbyChatHistory,
             canvasCommands: this.lobbyCanvasCommands,
-            gamePhase: this.gameManager.gamePhase,
-            minPlayers: MIN_PLAYERS_TO_START
+            settings: this.settings, // Send current settings
+            // Game phase is determined by gameManager instance if it exists
+            gamePhase: this.gameManager?.gamePhase || 'LOBBY',
+            minPlayers: this.gameManager?.minPlayers || MIN_PLAYERS_TO_START // Use game's min players if set
         };
         socket.emit('lobby state', state);
     }
 
     broadcastLobbyPlayerList() {
-        const playerList = Array.from(this.players.values(), p => ({
-            id: p.id,
-            name: p.name,
-            color: p.color,
-            isHost: p.isHost,
-            score: p.score || 0
-        }));
+        const playerList = Array.from(this.players.values(), p => ({ id: p.id, name: p.name, color: p.color, isHost: p.isHost, score: p.score || 0 }));
         this.io.to(this.id).emit('lobby player list update', playerList);
     }
 
     broadcastSystemMessage(msg) {
         const data = { text: msg, type: 'system' };
+        // Send to both lobby and game chat contexts
         this.io.to(this.id).emit('lobby chat message', data);
+        this.io.to(this.id).emit('chat message', data);
     }
 
-    registerSocketEvents(socket) {
-        console.log(`Registering events for ${socket.id} in lobby ${this.id}`);
-        // Remove old listeners
-        socket.removeAllListeners('lobby chat message');
-        socket.removeAllListeners('lobby draw');
-        socket.removeAllListeners('start game');
-        socket.removeAllListeners('player ready');
-        socket.removeAllListeners('submit vote');
-        socket.removeAllListeners('chat message');
-        socket.removeAllListeners('undo last draw');
-        socket.removeAllListeners('request ai interpretation'); // Also remove AI listener
+    // --- Event Handlers ---
+
+    // --- NEW: Handle Settings Update from Host ---
+    handleUpdateSettings(socket, newSettings) {
+        if (socket.id !== this.hostId) {
+            this.sendToPlayer(socket.id, 'system message', 'Only the host can change settings.');
+            return;
+        }
+        if (this.gameManager && this.gameManager.gamePhase !== 'LOBBY') {
+             this.sendToPlayer(socket.id, 'system message', 'Cannot change settings while a game is running.');
+             return;
+        }
+
+        // Validate and update settings
+        let updated = false;
+        if (newSettings.gameMode && typeof newSettings.gameMode === 'string') { // Add validation later
+            this.settings.gameMode = newSettings.gameMode;
+            updated = true;
+        }
+        const rounds = parseInt(newSettings.totalRounds, 10);
+        if (!isNaN(rounds) && rounds >= 1 && rounds <= 10) {
+            this.settings.totalRounds = rounds;
+            updated = true;
+        }
+        const time = parseInt(newSettings.drawTime, 10);
+        if (!isNaN(time) && time >= 30 && time <= 180) {
+            this.settings.drawTime = time;
+            updated = true;
+        }
+
+        if (updated) {
+            console.log(`[Lobby ${this.id}] Settings updated by host:`, this.settings);
+            // Broadcast new settings to all players in the lobby
+            this.io.to(this.id).emit('lobby settings update', this.settings);
+        }
     }
+
 
     handleLobbyChatMessage(socket, msg) {
+        // Allow chat anytime, but maybe indicate if game is running?
         const sender = this.players.get(socket.id);
         if (!sender || typeof msg !== 'string' || msg.trim().length === 0) return;
         const cleanMsg = msg.substring(0, 150);
-        const msgData = {
-            senderName: sender.name,
-            senderColor: sender.color,
-            text: cleanMsg
-        };
-        this.lobbyChatHistory.push(msgData);
-        if (this.lobbyChatHistory.length > 50) {
-            this.lobbyChatHistory.shift();
+        const msgData = { senderName: sender.name, senderColor: sender.color, text: cleanMsg };
+
+        // If in lobby phase, add to history and send to lobby chat
+        if (!this.gameManager || this.gameManager.gamePhase === 'LOBBY') {
+            this.lobbyChatHistory.push(msgData);
+            if (this.lobbyChatHistory.length > 50) this.lobbyChatHistory.shift();
+            this.io.to(this.id).emit('lobby chat message', msgData);
+        } else {
+            // If game is running, send to game chat via game manager
+            this.gameManager.handleChatMessage(socket, msg);
         }
-        this.io.to(this.id).emit('lobby chat message', msgData);
     }
 
     handleLobbyDraw(socket, drawCommand) {
-        if (!this.players.has(socket.id) || !drawCommand || !drawCommand.type || !drawCommand.cmdId) {
-            console.warn(`Lobby ${this.id}: invalid draw data from ${socket.id}`, drawCommand);
-            return;
-        }
+        // Only allow drawing on lobby canvas if no game is running
+         if (this.gameManager && this.gameManager.gamePhase !== 'LOBBY') {
+             console.warn(`[Lobby ${this.id}] Lobby draw ignored, game phase is ${this.gameManager.gamePhase}.`);
+             return;
+         }
+        // ... rest of lobby draw logic ...
+        if (!this.players.has(socket.id) || !drawCommand || !drawCommand.type || !drawCommand.cmdId) return;
         const commandWithPlayer = { ...drawCommand, playerId: socket.id };
-
-        let isValid = false;
-        switch (drawCommand.type) {
-            case 'line':
-                isValid =
-                    typeof drawCommand.x0 === 'number' &&
-                    typeof drawCommand.y0 === 'number' &&
-                    typeof drawCommand.x1 === 'number' &&
-                    typeof drawCommand.y1 === 'number' &&
-                    typeof drawCommand.size === 'number' &&
-                    (typeof drawCommand.color === 'string' || drawCommand.color === null || drawCommand.color === CANVAS_BACKGROUND_COLOR) && // Allow background color for eraser
-                    typeof drawCommand.strokeId === 'string';
-                break;
-
-            case 'fill':
-                isValid =
-                    typeof drawCommand.x === 'number' &&
-                    typeof drawCommand.y === 'number' &&
-                    typeof drawCommand.color === 'string';
-                break;
-
-            case 'rect':
-            case 'ellipse':
-                isValid =
-                    typeof drawCommand.x0 === 'number' &&
-                    typeof drawCommand.y0 === 'number' &&
-                    typeof drawCommand.x1 === 'number' &&
-                    typeof drawCommand.y1 === 'number' &&
-                    typeof drawCommand.color === 'string' &&
-                    typeof drawCommand.size === 'number';
-                break;
-
-            case 'text':
-                isValid =
-                    typeof drawCommand.x === 'number' &&
-                    typeof drawCommand.y === 'number' &&
-                    typeof drawCommand.text === 'string' &&
-                    typeof drawCommand.color === 'string' &&
-                    typeof drawCommand.size === 'number';
-                break;
-
-            case 'clear':
-                isValid = true;
-                break;
-
-            default:
-                console.warn(`Lobby ${this.id}: unknown draw type: ${drawCommand.type}`);
-                isValid = false;
-                break;
-        }
-        if (!isValid) {
-            console.warn(`Lobby ${this.id}: invalid data for type=${drawCommand.type} from ${socket.id}`, drawCommand);
-            return;
-        }
+        // Basic validation (can be expanded)
+        if (!['line', 'fill', 'rect', 'ellipse', 'text', 'clear'].includes(drawCommand.type)) return;
 
         if (commandWithPlayer.type === 'clear') {
             const removedCmdIds = [];
-            const initialLen = this.lobbyCanvasCommands.length;
             this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => {
-                if (cmd.playerId === socket.id) {
-                    removedCmdIds.push(cmd.cmdId);
-                    return false;
-                }
-                return true;
+                if (cmd.playerId === socket.id) { removedCmdIds.push(cmd.cmdId); return false; } return true;
             });
-            console.log(`[Lobby ${this.id}] Player ${socket.id} cleared their lines. Removed ${removedCmdIds.length} commands.`);
-
             if (removedCmdIds.length > 0) {
-                this.io.to(this.id).emit('lobby commands removed', {
-                    cmdIds: removedCmdIds,
-                    strokeId: null,
-                    playerId: socket.id
-                });
+                this.io.to(this.id).emit('lobby commands removed', { cmdIds: removedCmdIds, strokeId: null, playerId: socket.id });
             }
         } else {
             this.lobbyCanvasCommands.push(commandWithPlayer);
-            if (this.lobbyCanvasCommands.length > this.maxLobbyCommands) {
-                this.lobbyCanvasCommands.shift();
-            }
+            if (this.lobbyCanvasCommands.length > this.maxLobbyCommands) this.lobbyCanvasCommands.shift();
             socket.to(this.id).emit('lobby draw update', commandWithPlayer);
         }
     }
 
-   handleUndoLastDraw(socket, data) {
-        if (!this.players.has(socket.id)) return;
+    handleUndoLastDraw(socket, data) {
+         if (this.gameManager && this.gameManager.gamePhase !== 'LOBBY') return; // Only for lobby canvas
+         if (!this.players.has(socket.id)) return;
+        // ... rest of undo logic ...
         const playerId = socket.id;
-        const { cmdIds, strokeId } = data || {}; // Client now sends cmdIds OR strokeId
-
-        if (!cmdIds && !strokeId) {
-            console.warn(`[Lobby ${this.id}] Undo request missing cmdIds/strokeId from ${playerId}`);
-            return;
-        }
-
-        let removedCmdIds = [];
-        let removedStrokeId = null;
-
+        const { cmdIds, strokeId } = data || {};
+        if (!cmdIds && !strokeId) return;
+        let removedCmdIds = []; let removedStrokeId = null;
         if (strokeId) {
-            // Remove all commands matching the strokeId and playerId
             this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => {
-                if (cmd.strokeId === strokeId && cmd.playerId === playerId) {
-                    removedCmdIds.push(cmd.cmdId);
-                    return false; // Remove this command
-                }
-                return true; // Keep other commands
+                if (cmd.strokeId === strokeId && cmd.playerId === playerId) { removedCmdIds.push(cmd.cmdId); return false; } return true;
             });
-            if (removedCmdIds.length > 0) {
-                removedStrokeId = strokeId; // Confirm which stroke was removed
-                console.log(`[Lobby ${this.id}] Undo stroke=${strokeId}, removed ${removedCmdIds.length} commands from ${playerId}.`);
-            }
+            if (removedCmdIds.length > 0) removedStrokeId = strokeId;
         } else if (cmdIds && Array.isArray(cmdIds) && cmdIds.length > 0) {
-            // Remove specific command IDs belonging to the player
             const idsToRemoveSet = new Set(cmdIds);
             this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => {
-                if (idsToRemoveSet.has(cmd.cmdId) && cmd.playerId === playerId) {
-                    removedCmdIds.push(cmd.cmdId);
-                    return false; // Remove this command
-                }
-                return true; // Keep other commands
+                if (idsToRemoveSet.has(cmd.cmdId) && cmd.playerId === playerId) { removedCmdIds.push(cmd.cmdId); return false; } return true;
             });
-             if (removedCmdIds.length > 0) {
-                console.log(`[Lobby ${this.id}] Undo single command(s)=${removedCmdIds.join(',')} by ${playerId}`);
-            }
         }
-
-        // If any commands were actually removed, notify clients
         if (removedCmdIds.length > 0) {
-            this.io.to(this.id).emit('lobby commands removed', {
-                cmdIds: removedCmdIds,
-                strokeId: removedStrokeId, // Send the strokeId if that's what was undone
-                playerId: playerId
-            });
-        } else {
-             console.warn(`[Lobby ${this.id}] Undo request from ${playerId} did not remove any commands for data:`, data);
+            this.io.to(this.id).emit('lobby commands removed', { cmdIds: removedCmdIds, strokeId: removedStrokeId, playerId: playerId });
         }
     }
 
@@ -362,73 +265,84 @@ class Lobby {
             socket.emit('system message', 'Only the host can start.');
             return;
         }
-        if (this.players.size < MIN_PLAYERS_TO_START) {
-            socket.emit('system message', `Need ${MIN_PLAYERS_TO_START} players to start.`);
-            return;
-        }
-        if (this.gameManager.gamePhase !== 'LOBBY') {
+        if (this.gameManager && this.gameManager.gamePhase !== 'LOBBY') {
             socket.emit('system message', 'Game is already running.');
             return;
         }
-        console.log(`[Lobby ${this.id}] Host starting game.`);
-        this.io.to(this.id).emit('game starting', { lobbyId: this.id });
-        setTimeout(() => this.gameManager.startGame(), 500);
+
+        // --- Instantiate Game Mode Based on Settings ---
+        const options = {
+             totalRounds: this.settings.totalRounds,
+             drawTime: this.settings.drawTime,
+             // Pass other relevant options
+        };
+        switch (this.settings.gameMode) {
+            case 'ArtistPvp':
+                this.gameManager = new ArtistPvpGame(this.io, this.id, this, options);
+                break;
+            // case 'StoryMode':
+            //     this.gameManager = new StoryModeGame(this.io, this.id, this, options);
+            //     break;
+            default:
+                console.error(`[Lobby ${this.id}] Unknown game mode selected: ${this.settings.gameMode}`);
+                socket.emit('system message', `Error: Unknown game mode "${this.settings.gameMode}".`);
+                return;
+        }
+        // ---
+
+        console.log(`[Lobby ${this.id}] Host starting game (Mode: ${this.settings.gameMode}).`);
+        this.io.to(this.id).emit('game starting', { lobbyId: this.id, gameMode: this.settings.gameMode });
+
+        // Clear lobby canvas? Optional.
+        // this.lobbyCanvasCommands = [];
+        // this.io.to(this.id).emit('lobby commands removed', { clearAll: true }); // Need client handling for this
+
+        setTimeout(() => {
+            if (this.gameManager.startGame()) { // startGame now returns true/false
+                // Game started successfully
+            } else {
+                // Game start failed (e.g., not enough players)
+                 this.io.to(this.id).emit('game start failed');
+                 this.gameManager = null; // Reset game manager if start failed
+            }
+        }, 500);
     }
 
-    // --- NEW: AI Interpretation Handler ---
     async handleRequestAiInterpretation(socket, imageDataUrl) {
-        if (!this.players.has(socket.id)) return; // Check if player is in lobby
-
-        // 1. Authorization: Only host can request
-        if (socket.id !== this.hostId) {
-            console.warn(`[Lobby ${this.id}] Non-host (${socket.id}) tried to request AI interpretation.`);
-            socket.emit('ai interpretation result', { error: "Only the host can ask the AI." });
-            return;
-        }
-
-        // 2. Cooldown Check
-        const now = Date.now();
-        if (now - this.lastAiRequestTime < this.aiRequestCooldownMs) {
-            const remaining = Math.ceil((this.aiRequestCooldownMs - (now - this.lastAiRequestTime)) / 1000);
-            console.log(`[Lobby ${this.id}] AI request throttled. Wait ${remaining}s.`);
-            socket.emit('ai interpretation result', { error: `Please wait ${remaining} seconds before asking again.` });
-            return;
-        }
-
-        // 3. Basic Data Validation (Server-side)
-        if (!imageDataUrl || typeof imageDataUrl !== 'string' || !imageDataUrl.startsWith('data:image/png;base64,') || imageDataUrl.length > 2 * 1024 * 1024) { // 2MB limit
-             console.warn(`[Lobby ${this.id}] Invalid image data received for AI request from ${socket.id}. Length: ${imageDataUrl?.length}`);
-             socket.emit('ai interpretation result', { error: "Invalid or too large image data." });
+         // Only allow lobby AI interpretation if no game is running
+         if (this.gameManager && this.gameManager.gamePhase !== 'LOBBY') {
+             socket.emit('ai interpretation result', { error: "Cannot ask AI while a game is running." });
              return;
-        }
-
-
-        console.log(`[Lobby ${this.id}] Host (${socket.id}) requested AI interpretation.`);
-        this.lastAiRequestTime = now; // Update timestamp *before* making the async call
-
-        try {
-            // 4. Call AI Service
-            const interpretation = await interpretImage(imageDataUrl);
-            // 5. Broadcast Result
-            this.io.to(this.id).emit('ai interpretation result', { interpretation });
-            console.log(`[Lobby ${this.id}] Broadcasted AI interpretation: "${interpretation}"`);
-        } catch (error) {
-            // 6. Broadcast Error
-            console.error(`[Lobby ${this.id}] AI interpretation failed:`, error);
-            // Send a generic error to clients, don't expose detailed internal errors
-            const clientError = typeof error === 'string' ? error : "The AI could not process the image.";
-            this.io.to(this.id).emit('ai interpretation result', { error: clientError });
-        }
-    }
-    // --- End NEW ---
-
-
-    getPlayerCount() {
-        return this.players.size;
+         }
+        // ... rest of lobby AI logic ...
+        if (!this.players.has(socket.id)) return;
+        if (socket.id !== this.hostId) { socket.emit('ai interpretation result', { error: "Only the host can ask." }); return; }
+        const now = Date.now();
+        if (now - this.lastAiRequestTime < this.aiRequestCooldownMs) { const remaining = Math.ceil((this.aiRequestCooldownMs - (now - this.lastAiRequestTime)) / 1000); socket.emit('ai interpretation result', { error: `Wait ${remaining}s.` }); return; }
+        if (!imageDataUrl || typeof imageDataUrl !== 'string' || !imageDataUrl.startsWith('data:image/png;base64,') || imageDataUrl.length > 2 * 1024 * 1024) { socket.emit('ai interpretation result', { error: "Invalid image." }); return; }
+        console.log(`[Lobby ${this.id}] Host requested AI interpretation for lobby canvas.`); this.lastAiRequestTime = now;
+        try { const interpretation = await interpretImage(imageDataUrl); this.io.to(this.id).emit('ai interpretation result', { interpretation }); } catch (error) { console.error(`[Lobby ${this.id}] Lobby AI interpretation failed:`, error); const clientError = typeof error === 'string' ? error : "AI error."; this.io.to(this.id).emit('ai interpretation result', { error: clientError }); }
     }
 
-    attemptAutoStartGame() {
-        // no-op
+    // --- Getters ---
+    getPlayerCount() { return this.players.size; }
+
+    // --- Game Event Forwarding ---
+    // Forward events to the *current* gameManager instance if it exists
+    handlePlayerReady(socket, data) {
+        if (this.gameManager && typeof this.gameManager.handlePlayerReady === 'function') {
+            this.gameManager.handlePlayerReady(socket, data);
+        }
+    }
+    handleChatMessage(socket, data) { // Game chat messages
+         if (this.gameManager && typeof this.gameManager.handleChatMessage === 'function') {
+            this.gameManager.handleChatMessage(socket, data);
+        }
+    }
+    handleRateDrawingRequest(socket, data) { // New event for PvP rating
+         if (this.gameManager && typeof this.gameManager.handleRateDrawingRequest === 'function') {
+            this.gameManager.handleRateDrawingRequest(socket, data);
+        }
     }
 }
 
