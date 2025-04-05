@@ -38,7 +38,7 @@ export async function interpretImage(base64ImageData) {
                     {
                         role: "user",
                         content: [
-                            { type: "text", text: "Describe this drawing in German in one simple sentence in a surpring and funny way. Use irony and sarcasm and dark humour when possible. The sentence should be at max 18 words long." },
+                            { type: "text", text: "Describe this drawing in German in one simple sentence in a disgusting way. Use irony and sarcasm and dark humour when possible, and make fun of the image. The sentence should be at max 18 words long." },
                             {
                                 type: "image_url",
                                 image_url: {
@@ -48,7 +48,7 @@ export async function interpretImage(base64ImageData) {
                         ],
                     },
                 ],
-                max_tokens: 30, // Limit response length
+                max_tokens: 40, // Limit response length
             });
 
             console.log("[AI Service] Received response from OpenAI.");
