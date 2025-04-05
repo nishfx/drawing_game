@@ -4,19 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lobby - Drawing Game</title>
-    <!-- Add /game prefix back -->
     <link rel="stylesheet" href="/game/style.css">
-    <!-- Styles specific to the lobby page -->
-    <!-- (Inline styles removed as they are now in style.css) -->
 </head>
 <body>
-    <!-- New Header Area -->
+    <!-- Updated Header Area -->
     <div id="header-area">
-        <div id="logo-placeholder">Your Logo Here</div>
+        <!-- Updated Logo Size -->
+        <img src="/game/images/your-logo.png" alt="Drawing Game Logo" width="600" height="200" style="display: block; margin: 0 auto 15px auto; max-width: 100%;">
         <h1>Lobby</h1>
-        <p>Status: <span id="status">Connecting...</span></p> <!-- Moved Status -->
+        <p>Status: <span id="status">Connecting...</span></p>
         <p id="lobby-status">Waiting for players...</p>
-        <!-- Removed Lobby ID Display -->
     </div>
 
     <div id="main-layout">
@@ -27,7 +24,7 @@
 
         <div id="lobby-canvas-area">
             <canvas id="lobby-canvas" width="600" height="450"></canvas>
-            <!-- New Drawing Tools Area -->
+            <!-- Drawing Tools Area -->
             <div id="lobby-drawing-tools">
                 <button class="tool-button active" data-tool="pencil" title="Pencil">✏️</button>
                 <button class="tool-button" data-tool="eraser" title="Eraser">🧼</button>
@@ -39,6 +36,7 @@
                     <option value="5" selected>5px</option>
                     <option value="10">10px</option>
                     <option value="15">15px</option>
+                    <option value="25">25px</option> <!-- Added thicker option -->
                 </select>
                 <button class="tool-button" id="undo-btn" title="Undo (Not Implemented)">↩️</button>
                 <button class="tool-button" id="clear-canvas-btn" title="Clear Canvas">🗑️</button>
@@ -62,7 +60,6 @@
         </div>
     </div>
 
-    <!-- Adjust paths for JS - Add /game prefix back -->
     <script src="/game/socket.io/socket.io.js"></script>
     <script src="/game/js/lobbyClient.js" type="module"></script>
 </body>
