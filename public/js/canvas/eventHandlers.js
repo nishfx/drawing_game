@@ -1,10 +1,15 @@
 /* public/js/canvas/eventHandlers.js */
 // Manages all canvas event listeners (mouse, touch, window).
 
-// Import UI update functions from canvasCore now
-import { getCanvas, getContext, getPlayerId, isDrawingEnabled, getIsDrawing, setIsDrawing, getIsMouseOverCanvas, setIsMouseOverCanvas, CANVAS_BACKGROUND_COLOR, getEmitCallback, clearOverlay, setCursorStyle } from './canvasCore.js';
-// Import overlay functions needed for drawing previews
-import { getOverlayCtx, resyncOverlayPosition, updateCursorPreview } from './overlayManager.js';
+// Import UI update functions and core refs from canvasCore now
+import {
+    getCanvas, getContext, getPlayerId, isDrawingEnabled, getIsDrawing,
+    setIsDrawing, getIsMouseOverCanvas, setIsMouseOverCanvas, CANVAS_BACKGROUND_COLOR,
+    getEmitCallback, clearOverlay, setCursorStyle, getOverlayCtx // <-- Import getOverlayCtx from canvasCore
+} from './canvasCore.js';
+// Import overlay functions needed for drawing previews (excluding getOverlayCtx)
+import { resyncOverlayPosition, updateCursorPreview } from './overlayManager.js';
+// Import other necessary modules
 import { getCurrentTool, getCurrentColor, getCurrentLineWidth } from './toolManager.js';
 import { getEventCoords, generateStrokeId, generateCommandId } from './canvasUtils.js';
 import { executeCommand } from './drawingExecutor.js';
@@ -207,7 +212,7 @@ function handleMouseMove(e) {
     }
 
     const context = getContext();
-    const overlayCtx = getOverlayCtx();
+    const overlayCtx = getOverlayCtx(); // Use the getter from canvasCore
     const currentTool = getCurrentTool();
 
     if (!context || !overlayCtx) return;
