@@ -5,15 +5,16 @@
 import {
     getCanvas, getContext, getPlayerId, isDrawingEnabled, getIsDrawing,
     setIsDrawing, getIsMouseOverCanvas, setIsMouseOverCanvas, CANVAS_BACKGROUND_COLOR,
-    getEmitCallback, clearOverlay, setCursorStyle, getOverlayCtx // <-- Import getOverlayCtx from canvasCore
+    getEmitCallback, clearOverlay, setCursorStyle, getOverlayCtx
 } from './canvasCore.js';
-// Import overlay functions needed for drawing previews (excluding getOverlayCtx)
+// Import overlay functions needed for drawing previews
 import { resyncOverlayPosition, updateCursorPreview } from './overlayManager.js';
 // Import other necessary modules
 import { getCurrentTool, getCurrentColor, getCurrentLineWidth } from './toolManager.js';
 import { getEventCoords, generateStrokeId, generateCommandId } from './canvasUtils.js';
 import { executeCommand } from './drawingExecutor.js';
-import { addCommandToLocalHistory, removeCommands, redrawCanvasFromHistory } from './historyManager.js';
+// Import specific history functions
+import { addCommandToHistory, redrawCanvasFromHistory } from './historyManager.js'; // Removed removeCommands import here
 
 // --- State specific to event handling ---
 let startX = 0;
@@ -55,15 +56,7 @@ export function initEventHandlers() {
     // Global mouseup listener to catch mouse release outside canvas
     window.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
 
-    // Optional: Listen for scroll events if the canvas position might change on scroll
-    // window.addEventListener('scroll', () => {
-    //    requestAnimationFrame(resyncOverlayPosition);
-    // }, true); // Use capture phase if scrolling container is higher up
-
     console.log("Event Handlers Initialized.");
-
-    // TODO: Add cleanup for the global mouseup listener if the canvas/component is ever destroyed.
-    // e.g., in a cleanup function: window.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
 }
 
 // -------------------------------------------------------------------
@@ -162,7 +155,7 @@ function handleMouseDown(e) {
                 tool: 'text' // Specify tool used
             };
             executeCommand(command, context); // Draw locally
-            addCommandToLocalHistory(command); // Add to history
+            addCommandToHistory(command); // Use controlled add function
             emitCommand(command); // Emit to server
         }
         updateCursorPreview(x, y); // Show preview again after text placement
@@ -179,7 +172,7 @@ function handleMouseDown(e) {
             tool: 'fill' // Specify tool used
         };
         executeCommand(command, context); // Execute fill locally
-        addCommandToLocalHistory(command); // Add to history
+        addCommandToHistory(command); // Use controlled add function
         emitCommand(command); // Emit to server
         updateCursorPreview(x, y); // Show preview again after fill
 
@@ -332,21 +325,20 @@ function finishStroke(finalX, finalY) {
         // Draw the final shape onto the main canvas
         executeCommand(command, context);
         // Add the command to local history
-        addCommandToLocalHistory(command);
+        addCommandToHistory(command); // Use controlled add function
         // Emit the command to the server
         emitCommand(command);
     }
 
-    // --- VERIFY THIS SECTION ---
-    // Reset drawing state variables *except* isDrawing (already false)
+    // --- Reset drawing state variables ---
     const previousStrokeId = currentStrokeId; // Store for logging
-    currentStrokeId = null; // <-- THIS MUST BE HAPPENING RELIABLY
+    currentStrokeId = null; // <-- Reset the ID
     shapeStartX = null;
     shapeStartY = null;
     startX = 0; // Reset start coords
     startY = 0;
     console.log(`[finishStroke] Stroke ID reset from ${previousStrokeId} to ${currentStrokeId}`); // Log after reset
-    // --- END VERIFICATION ---
+    // --- END Reset ---
 
     // Update cursor preview for the current position
     if (getIsMouseOverCanvas()) {
@@ -394,10 +386,6 @@ function handleTouchEnd(e) {
              handleGlobalMouseUp(e); // Simulate global mouse up
         }
     }
-    // Reset flags after touch ends - Global handler should do this
-    // setIsDrawing(false); // Ensure drawing stops
-    // setIsMouseOverCanvas(false); // Treat touch end like mouse leave for cursor state
-    // setCursorStyle(); // Update cursor style
 }
 
 
@@ -439,7 +427,7 @@ function emitDrawSegment(x0, y0, x1, y1) {
     };
 
     // Add this command segment to local history immediately
-    addCommandToLocalHistory(command);
+    addCommandToHistory(command); // Use controlled add function
 
     // Emit the command to the server
     emitCallback(command);
