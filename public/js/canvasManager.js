@@ -4,6 +4,7 @@
 import { initCore, getCanvas, getContext, setPlayerId as setCorePlayerId, getPlayerId, setEmitCallback, setSocketRef } from './canvas/canvasCore.js';
 import { setTool as setToolState, setColor as setToolColor, setLineWidth as setToolLineWidth } from './canvas/toolManager.js';
 import { enableDrawing as enableCoreDrawing, disableDrawing as disableCoreDrawing } from './canvas/canvasCore.js';
+import { initOverlay } from './canvas/overlayManager.js'; // <-- Import initOverlay
 import { initEventHandlers } from './canvas/eventHandlers.js';
 import { loadAndDrawHistory as loadHistory, drawExternalCommand as drawExternal, clearHistory } from './canvas/historyManager.js';
 import { clearCanvas as clearHistoryAndEmit } from './canvas/historyManager.js';
@@ -20,6 +21,10 @@ import { getDrawingDataURL as getDataURL } from './canvas/dataExporter.js';
 export function initCanvas(canvasId, drawEventEmitter, socket = null) {
     if (!initCore(canvasId)) {
         return false;
+    }
+    // Initialize the overlay canvas AFTER core is initialized
+    if (!initOverlay()) {
+        return false; // Overlay initialization failed
     }
     setEmitCallback(drawEventEmitter);
     setSocketRef(socket); // Store socket reference for undo

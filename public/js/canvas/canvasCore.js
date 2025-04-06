@@ -1,8 +1,8 @@
 /* public/js/canvas/canvasCore.js */
 // Holds core canvas references, player ID, drawing state, and socket ref.
 
-import { clearOverlay } from './overlayManager.js';
-import { setCursorStyle } from './overlayManager.js';
+// Import tool state getters needed for cursor style/preview (indirectly)
+import { getCurrentTool, getCurrentColor, getCurrentLineWidth } from './toolManager.js';
 
 // --- Core References ---
 let canvas = null;
@@ -65,6 +65,37 @@ export function setEmitCallback(callback) { emitDrawCallback = callback; }
 export function setSocketRef(socket) { socketRef = socket; }
 export function setIsDrawing(state) { isDrawing = state; }
 export function setIsMouseOverCanvas(state) { isMouseOverCanvas = state; }
+
+// --- UI Update Functions (Moved from overlayManager) ---
+
+/** Clears the entire overlay canvas. */
+export function clearOverlay() {
+    // const overlayCtx = getOverlayCtx(); // Already available in this scope
+    // const overlayCanvas = getOverlayCanvas(); // Already available in this scope
+    // const canvas = getCanvas(); // Already available in this scope
+    if (!overlayCtx || !overlayCanvas || !canvas) return;
+    // Ensure overlay dimensions match canvas
+    if (overlayCanvas.width !== canvas.width || overlayCanvas.height !== canvas.height) {
+        overlayCanvas.width = canvas.width;
+        overlayCanvas.height = canvas.height;
+    }
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+}
+
+/** Sets the CSS cursor style for the main canvas element. */
+export function setCursorStyle() {
+    // const canvas = getCanvas(); // Already available in this scope
+    if (!canvas) return;
+    if (!isDrawingEnabled()) {
+        canvas.style.cursor = 'not-allowed';
+    } else if (getIsMouseOverCanvas()) {
+        // Hide system cursor when custom preview is active
+        canvas.style.cursor = 'none';
+    } else {
+        // Show default cursor when outside
+        canvas.style.cursor = 'default';
+    }
+}
 
 // --- State Changers ---
 export function enableDrawing() {

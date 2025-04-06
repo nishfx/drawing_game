@@ -1,9 +1,10 @@
 /* public/js/canvas/historyManager.js */
 // Manages the drawing history (local and full) and redraw operations.
 
-import { getContext, getCanvas, getPlayerId, CANVAS_BACKGROUND_COLOR, getEmitCallback } from './canvasCore.js';
+// Import clearOverlay from canvasCore now
+import { getContext, getCanvas, getPlayerId, CANVAS_BACKGROUND_COLOR, getEmitCallback, clearOverlay } from './canvasCore.js';
 import { executeCommand } from './drawingExecutor.js';
-import { clearOverlay, updateCursorPreview } from './overlayManager.js'; // Import overlay functions
+// import { updateCursorPreview } from './overlayManager.js'; // Not needed directly here
 import { generateCommandId } from './canvasUtils.js'; // Import ID generator
 
 // --- History State ---

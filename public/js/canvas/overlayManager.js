@@ -1,8 +1,13 @@
 /* public/js/canvas/overlayManager.js */
 // Manages the overlay canvas for cursor previews and shape drawing.
 
+// Import only what's needed from canvasCore
 import { getCanvas, getOverlayCanvas, setOverlayCanvas, getOverlayCtx, setOverlayCtx, isDrawingEnabled, getIsDrawing, getIsMouseOverCanvas } from './canvasCore.js';
+// Import UI update functions now from canvasCore
+import { setCursorStyle, clearOverlay } from './canvasCore.js';
+// Import tool state getters
 import { getCurrentTool, getCurrentColor, getCurrentLineWidth } from './toolManager.js';
+
 
 // --- Initialization ---
 /**
@@ -105,52 +110,24 @@ export function resyncOverlayPosition() {
 }
 
 // -------------------------------------------------------------------
-// Cursor and Overlay Management
+// Cursor Preview Drawing (Remains in overlayManager)
 // -------------------------------------------------------------------
-/** Sets the CSS cursor style for the main canvas element. */
-export function setCursorStyle() {
-    const canvas = getCanvas();
-    if (!canvas) return;
-    if (!isDrawingEnabled()) {
-        canvas.style.cursor = 'not-allowed';
-    } else if (getIsMouseOverCanvas()) {
-        // Hide system cursor when custom preview is active
-        canvas.style.cursor = 'none';
-    } else {
-        // Show default cursor when outside
-        canvas.style.cursor = 'default';
-    }
-}
-
-/** Clears the entire overlay canvas. */
-export function clearOverlay() {
-    const overlayCtx = getOverlayCtx();
-    const overlayCanvas = getOverlayCanvas();
-    const canvas = getCanvas();
-    if (!overlayCtx || !overlayCanvas || !canvas) return;
-    // Ensure overlay dimensions match canvas
-    if (overlayCanvas.width !== canvas.width || overlayCanvas.height !== canvas.height) {
-        overlayCanvas.width = canvas.width;
-        overlayCanvas.height = canvas.height;
-    }
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-}
 
 /** Draws the circular cursor preview on the overlay canvas. */
 function drawCursorPreview(x, y) {
-    const overlayCtx = getOverlayCtx();
+    const overlayCtx = getOverlayCtx(); // Use getter from canvasCore
     if (!overlayCtx || !isDrawingEnabled() || getIsDrawing()) {
         // Don't draw preview if drawing disabled or actively drawing
-        clearOverlay();
+        clearOverlay(); // Use clearOverlay from canvasCore
         return;
     }
     clearOverlay(); // Clear previous frame
 
     overlayCtx.beginPath();
-    const currentLineWidth = getCurrentLineWidth();
+    const currentLineWidth = getCurrentLineWidth(); // From toolManager
     const radius = Math.max(1, currentLineWidth / 2);
-    const currentTool = getCurrentTool();
-    const previewColor = (currentTool === 'eraser') ? '#888888' : getCurrentColor();
+    const currentTool = getCurrentTool(); // From toolManager
+    const previewColor = (currentTool === 'eraser') ? '#888888' : getCurrentColor(); // From toolManager
 
     // Draw circle outline
     overlayCtx.arc(x, y, radius, 0, Math.PI * 2);
@@ -165,7 +142,15 @@ export function updateCursorPreview(x, y) {
     if (getIsMouseOverCanvas() && isDrawingEnabled() && !getIsDrawing()) {
         drawCursorPreview(x, y);
     } else {
-        clearOverlay(); // Clear preview otherwise
+        clearOverlay(); // Clear preview otherwise (uses function from canvasCore)
     }
-    setCursorStyle(); // Ensure CSS cursor style is correct
+    setCursorStyle(); // Ensure CSS cursor style is correct (uses function from canvasCore)
 }
+
+// --- Getters ---
+// getOverlayCanvas and getOverlayCtx are now imported from canvasCore if needed internally,
+// but primarily other modules get them from canvasCore directly.
+
+// --- Setters ---
+// setOverlayCanvas and setOverlayCtx are now imported from canvasCore if needed internally,
+// but primarily called by initOverlay.

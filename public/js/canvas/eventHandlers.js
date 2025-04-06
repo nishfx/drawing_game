@@ -1,12 +1,14 @@
 /* public/js/canvas/eventHandlers.js */
 // Manages all canvas event listeners (mouse, touch, window).
 
-import { getCanvas, getContext, getPlayerId, isDrawingEnabled, getIsDrawing, setIsDrawing, getIsMouseOverCanvas, setIsMouseOverCanvas, CANVAS_BACKGROUND_COLOR, getEmitCallback } from './canvasCore.js';
-import { getOverlayCtx, resyncOverlayPosition, clearOverlay, updateCursorPreview, setCursorStyle } from './overlayManager.js';
+// Import UI update functions from canvasCore now
+import { getCanvas, getContext, getPlayerId, isDrawingEnabled, getIsDrawing, setIsDrawing, getIsMouseOverCanvas, setIsMouseOverCanvas, CANVAS_BACKGROUND_COLOR, getEmitCallback, clearOverlay, setCursorStyle } from './canvasCore.js';
+// Import overlay functions needed for drawing previews
+import { getOverlayCtx, resyncOverlayPosition, updateCursorPreview } from './overlayManager.js';
 import { getCurrentTool, getCurrentColor, getCurrentLineWidth } from './toolManager.js';
 import { getEventCoords, generateStrokeId, generateCommandId } from './canvasUtils.js';
 import { executeCommand } from './drawingExecutor.js';
-import { addCommandToLocalHistory, removeCommands, redrawCanvasFromHistory } from './historyManager.js'; // Import removeCommands
+import { addCommandToLocalHistory, removeCommands, redrawCanvasFromHistory } from './historyManager.js';
 
 // --- State specific to event handling ---
 let startX = 0;
