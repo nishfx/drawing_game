@@ -1,4 +1,6 @@
 /* public/js/canvas/eventHandlers.js */
+// Manages all canvas event listeners (mouse, touch, window).
+
 import {
     getCanvas, getContext, getPlayerId, isDrawingEnabled, getIsDrawing,
     setIsDrawing, getIsMouseOverCanvas, setIsMouseOverCanvas, CANVAS_BACKGROUND_COLOR,
@@ -17,7 +19,7 @@ let lastX = 0;
 let lastY = 0;
 let currentMouseX = 0;
 let currentMouseY = 0;
-let currentStrokeId = null;
+let currentStrokeId = null; // One strokeId for the entire pencil/eraser drag or shape
 let shapeStartX = null;
 let shapeStartY = null;
 
@@ -28,18 +30,23 @@ export function initEventHandlers() {
         return;
     }
 
+    // Mouse events
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('mouseleave', handleMouseLeave);
     canvas.addEventListener('mouseenter', handleMouseEnter);
 
+    // Touch events
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd);
     canvas.addEventListener('touchcancel', handleTouchEnd);
 
+    // Listen for window resizes
     window.addEventListener('resize', () => requestAnimationFrame(resyncOverlayPosition));
+
+    // Global mouseup if released outside the canvas
     window.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
 
     console.log("Event Handlers Initialized.");
@@ -50,7 +57,6 @@ function handleMouseEnter(e) {
     const { x, y } = getEventCoords(e);
     currentMouseX = x;
     currentMouseY = y;
-    // ★ DEBUG LOG
     console.log(`[MOUSEENTER] isDrawing=${getIsDrawing()}, x=${x}, y=${y}`);
 
     if (e.buttons === 1 && getIsDrawing()) {
@@ -73,7 +79,6 @@ function handleMouseLeave(e) {
     setIsMouseOverCanvas(false);
     clearOverlay();
     setCursorStyle();
-    // ★ DEBUG LOG
     console.log(`[MOUSELEAVE] isDrawing=${getIsDrawing()}`);
 }
 
@@ -82,6 +87,7 @@ function handleMouseDown(e) {
     if (!isDrawingEnabled() || !myPlayerId) return;
     if (e.button !== 0 && e.type !== 'touchstart') return;
 
+    // Sync overlay before coords
     resyncOverlayPosition();
     const { x, y } = getEventCoords(e);
     const ctx = getContext();
@@ -102,72 +108,88 @@ function handleMouseDown(e) {
 
     clearOverlay();
     setCursorStyle();
-
-    // ★ DEBUG LOG
     console.log(`[MOUSEDOWN] tool=${tool}, x=${x}, y=${y}, isDrawing=${getIsDrawing()}`);
 
-    if (tool === 'pencil' || tool === 'eraser') {
-        // If you want a single stroke per mouse-drag, you can do:
-        // currentStrokeId = generateStrokeId();
-        // console.log("[MOUSEDOWN] Created strokeId=", currentStrokeId);
+    switch (tool) {
+        case 'pencil':
+        case 'eraser':
+            // Create a single strokeId for the entire mouse-drag
+            currentStrokeId = generateStrokeId();
+            console.log(`[MOUSEDOWN] Created strokeId=${currentStrokeId} for pencil/eraser`);
 
-        ctx.lineWidth = lw;
-        ctx.strokeStyle = (tool === 'eraser') ? CANVAS_BACKGROUND_COLOR : col;
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + 0.01, y + 0.01);
-        ctx.stroke();
-        emitDrawSegment(x, y, x + 0.01, y + 0.01);
+            // Draw a tiny dot immediately
+            ctx.lineWidth = lw;
+            ctx.strokeStyle = (tool === 'eraser') ? CANVAS_BACKGROUND_COLOR : col;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + 0.01, y + 0.01);
+            ctx.stroke();
+            // Emit that single dot
+            emitDrawSegment(x, y, x + 0.01, y + 0.01);
+            break;
 
-    } else if (tool === 'text') {
-        setIsDrawing(false);
-        const userText = prompt("Enter text:");
-        if (userText && userText.trim()) {
+        case 'text': {
+            // Single instant action with a new strokeId
+            setIsDrawing(false);
+            const userText = prompt("Enter text:");
+            if (userText && userText.trim()) {
+                const strokeId = generateStrokeId();
+                const cmdId = generateCommandId();
+                console.log(`[TEXT] strokeId=${strokeId}, cmdId=${cmdId}, x=${x}, y=${y}, text="${userText}"`);
+                const command = {
+                    cmdId,
+                    strokeId,
+                    playerId: myPlayerId,
+                    type: 'text',
+                    x, y,
+                    text: userText.trim(),
+                    color: col,
+                    size: lw,
+                    tool: 'text'
+                };
+                executeCommand(command, ctx);
+                addCommandToHistory(command);
+                emitCommand(command);
+            }
+            updateCursorPreview(x, y);
+            break;
+        }
+
+        case 'fill': {
+            // Single instant action with a new strokeId
+            setIsDrawing(false);
             const strokeId = generateStrokeId();
             const cmdId = generateCommandId();
-            console.log(`[TEXT] strokeId=${strokeId}, cmdId=${cmdId}, x=${x}, y=${y}, text="${userText}"`);
+            console.log(`[FILL] strokeId=${strokeId}, cmdId=${cmdId}, x=${x}, y=${y}, color=${col}`);
             const command = {
                 cmdId,
                 strokeId,
                 playerId: myPlayerId,
-                type: 'text',
+                type: 'fill',
                 x, y,
-                text: userText.trim(),
                 color: col,
-                size: lw,
-                tool: 'text'
+                tool: 'fill'
             };
             executeCommand(command, ctx);
             addCommandToHistory(command);
             emitCommand(command);
+            updateCursorPreview(x, y);
+            break;
         }
-        updateCursorPreview(x, y);
 
-    } else if (tool === 'fill') {
-        setIsDrawing(false);
-        const strokeId = generateStrokeId();
-        const cmdId = generateCommandId();
-        console.log(`[FILL] strokeId=${strokeId}, cmdId=${cmdId}, x=${x}, y=${y}, color=${col}`);
-        const command = {
-            cmdId,
-            strokeId,
-            playerId: myPlayerId,
-            type: 'fill',
-            x, y,
-            color: col,
-            tool: 'fill'
-        };
-        executeCommand(command, ctx);
-        addCommandToHistory(command);
-        emitCommand(command);
-        updateCursorPreview(x, y);
+        case 'rectangle':
+        case 'ellipse':
+            // Create strokeId for the entire shape
+            currentStrokeId = generateStrokeId();
+            shapeStartX = x;
+            shapeStartY = y;
+            console.log(`[SHAPE START] tool=${tool}, strokeId=${currentStrokeId}, start=(${x},${y})`);
+            break;
 
-    } else if (tool === 'rectangle' || tool === 'ellipse') {
-        currentStrokeId = generateStrokeId();
-        shapeStartX = x;
-        shapeStartY = y;
-        console.log(`[SHAPE START] tool=${tool}, strokeId=${currentStrokeId}, start=(${x},${y})`);
+        default:
+            console.warn(`[MOUSEDOWN] Unrecognized tool=${tool}`);
+            break;
     }
 }
 
@@ -186,44 +208,51 @@ function handleMouseMove(e) {
     const ctx = getContext();
     const overlayCtx = getOverlayCtx();
     const tool = getCurrentTool();
-
     if (!ctx || !overlayCtx) return;
 
-    if (tool === 'pencil' || tool === 'eraser') {
-        // ★ DEBUG LOG
-        console.log(`[MOUSEMOVE] pencil/eraser from (${lastX},${lastY}) to (${x},${y})`);
+    switch (tool) {
+        case 'pencil':
+        case 'eraser':
+            console.log(`[MOUSEMOVE] pencil/eraser from (${lastX},${lastY}) to (${x},${y}), strokeId=${currentStrokeId}`);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            // All segments in this drag share currentStrokeId
+            emitDrawSegment(lastX, lastY, x, y, currentStrokeId);
+            lastX = x;
+            lastY = y;
+            break;
 
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        emitDrawSegment(lastX, lastY, x, y);
-        lastX = x;
-        lastY = y;
+        case 'rectangle':
+        case 'ellipse':
+            clearOverlay();
+            overlayCtx.save();
+            overlayCtx.globalCompositeOperation = 'source-over';
+            overlayCtx.strokeStyle = getCurrentColor();
+            overlayCtx.lineWidth = getCurrentLineWidth();
 
-    } else if (tool === 'rectangle' || tool === 'ellipse') {
-        clearOverlay();
-        overlayCtx.save();
-        overlayCtx.globalCompositeOperation = 'source-over';
-        overlayCtx.strokeStyle = getCurrentColor();
-        overlayCtx.lineWidth = getCurrentLineWidth();
+            const x0 = shapeStartX;
+            const y0 = shapeStartY;
+            overlayCtx.beginPath();
+            if (tool === 'rectangle') {
+                const rx = Math.min(x0, x);
+                const ry = Math.min(y0, y);
+                const rw = Math.abs(x - x0);
+                const rh = Math.abs(y - y0);
+                overlayCtx.rect(rx, ry, rw, rh);
+            } else {
+                const cx = (x0 + x) / 2;
+                const cy = (y0 + y) / 2;
+                const rx = Math.abs(x - x0) / 2;
+                const ry = Math.abs(y - y0) / 2;
+                overlayCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+            }
+            overlayCtx.stroke();
+            overlayCtx.restore();
+            break;
 
-        const x0 = shapeStartX;
-        const y0 = shapeStartY;
-        overlayCtx.beginPath();
-        if (tool === 'rectangle') {
-            const rx = Math.min(x0, x);
-            const ry = Math.min(y0, y);
-            const rw = Math.abs(x - x0);
-            const rh = Math.abs(y - y0);
-            overlayCtx.rect(rx, ry, rw, rh);
-        } else {
-            const cx = (x0 + x) / 2;
-            const cy = (y0 + y) / 2;
-            const rx = Math.abs(x - x0) / 2;
-            const ry = Math.abs(y - y0) / 2;
-            overlayCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
-        }
-        overlayCtx.stroke();
-        overlayCtx.restore();
+        // text/fill do nothing on mousemove
+        default:
+            break;
     }
 }
 
@@ -240,7 +269,7 @@ function handleGlobalMouseUp(e) {
 }
 
 function handleMouseUp(e) {
-    // We rely on handleGlobalMouseUp to finalize
+    // Just let handleGlobalMouseUp do the actual finishing
 }
 
 function finishStroke(finalX, finalY) {
@@ -252,8 +281,11 @@ function finishStroke(finalX, finalY) {
     if (!ctx || !myPlayerId) return;
 
     if (tool === 'pencil' || tool === 'eraser') {
-        ctx.beginPath();
-    } else if (tool === 'rectangle' || tool === 'ellipse') {
+        // The entire drag's lines are already emitted with currentStrokeId
+        ctx.beginPath(); // break the path
+    }
+    else if (tool === 'rectangle' || tool === 'ellipse') {
+        // Save a single shape command
         clearOverlay();
         const cmdId = generateCommandId();
         const command = {
@@ -274,6 +306,7 @@ function finishStroke(finalX, finalY) {
         emitCommand(command);
     }
 
+    // Reset stroke data
     currentStrokeId = null;
     shapeStartX = null;
     shapeStartY = null;
@@ -281,7 +314,7 @@ function finishStroke(finalX, finalY) {
     startY = 0;
 }
 
-// --- Touch Mappings ---
+// --- Touch equivalents ---
 function handleTouchStart(e) {
     const canvas = getCanvas();
     if (e.target !== canvas || !isDrawingEnabled()) return;
@@ -320,20 +353,16 @@ function handleTouchEnd(e) {
 // -------------------------------------------------------------------
 // Emit Drawing Data
 // -------------------------------------------------------------------
-function emitDrawSegment(x0, y0, x1, y1) {
+function emitDrawSegment(x0, y0, x1, y1, forcedStrokeId = null) {
     const myPlayerId = getPlayerId();
     const emitCallback = getEmitCallback();
-    if (!emitCallback || !myPlayerId) {
-        return;
-    }
+    if (!emitCallback || !myPlayerId) return;
 
     const cmdId = generateCommandId();
     const currentTool = getCurrentTool();
-    // Decide strokeId for this segment:
-    // If you want each line-segment as its own undo chunk:
-    // const segStrokeId = generateStrokeId();
-    // If you want one entire drag to be one stroke:
-    const segStrokeId = currentStrokeId || generateStrokeId();
+
+    // Use existing strokeId from handleMouseDown or fallback (edge cases)
+    const segStrokeId = forcedStrokeId || currentStrokeId || generateStrokeId();
 
     console.log(`[EMIT SEGMENT] tool=${currentTool}, strokeId=${segStrokeId}, cmdId=${cmdId}, from=(${x0},${y0}) to=(${x1},${y1})`);
 
