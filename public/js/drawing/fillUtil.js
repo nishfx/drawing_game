@@ -1,5 +1,7 @@
 // public/js/drawing/fillUtil.js
 
+import { hexToRgba, colorsMatch } from '../canvas/canvasUtils.js'; // Import color utils
+
 /**
  * Gets the color [r, g, b, a] of a specific pixel on the canvas.
  * @param {CanvasRenderingContext2D} ctx - The canvas context.
@@ -20,53 +22,6 @@ export function getPixelColor(ctx, x, y) {
         console.error("Error getting pixel data (maybe tainted canvas?):", e);
         return null;
     }
-}
-
-/**
- * Converts a hex color string (#RRGGBB or #RGB) to an RGBA array [r, g, b, a].
- * @param {string} hex - The hex color string.
- * @returns {number[]} An array [r, g, b, 255].
- */
-function hexToRgba(hex) {
-    if (hex.length === 4) {
-        hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
-    }
-    if (hex.length !== 7 || hex[0] !== '#') {
-        console.warn(`Invalid hex color format: ${hex}. Defaulting to black.`);
-        return [0, 0, 0, 255];
-    }
-    try {
-        const bigint = parseInt(hex.slice(1), 16);
-        const r = (bigint >> 16) & 255;
-        const g = (bigint >> 8) & 255;
-        const b = bigint & 255;
-        return [r, g, b, 255];
-    } catch (e) {
-        console.error(`Error parsing hex color: ${hex}`, e);
-        return [0, 0, 0, 255];
-    }
-}
-
-/**
- * Compares two color arrays [r, g, b, a] within a tolerance.
- * @param {Uint8ClampedArray|number[]} color1
- * @param {Uint8ClampedArray|number[]} color2
- * @param {number} tolerance - Max difference allowed for R, G, B values.
- * @returns {boolean} True if colors are similar within tolerance.
- */
-function colorsMatch(color1, color2, tolerance = 2) { // Default tolerance low
-    if (!color1 || !color2) return false;
-    const rDiff = Math.abs(color1[0] - color2[0]);
-    const gDiff = Math.abs(color1[1] - color2[1]);
-    const bDiff = Math.abs(color1[2] - color2[2]);
-    // Check alpha difference as well, especially against fully transparent
-    const aDiff = Math.abs(color1[3] - color2[3]);
-    // If target is transparent, only fill transparent
-    if (color2[3] === 0) {
-        return aDiff === 0;
-    }
-    // Otherwise, compare RGB within tolerance and ensure alpha is reasonably similar
-    return rDiff <= tolerance && gDiff <= tolerance && bDiff <= tolerance && aDiff <= tolerance;
 }
 
 /**

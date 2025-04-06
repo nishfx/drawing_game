@@ -15,6 +15,8 @@ export const updatePlayerList = PlayerListUI.updatePlayerList;
 export const addChatMessage = ChatUI.addChatMessage;
 export const startTimer = TimerUI.startTimer;
 export const stopTimer = TimerUI.stopTimer;
+export const disableVotingButtons = VotingUI.disableVotingButtons; // Expose voting button controls
+export const enableVotingButtons = VotingUI.enableVotingButtons;
 
 // Removed updateStatus function as the element is gone
 

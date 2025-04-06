@@ -51,7 +51,7 @@ function initializeLobby() {
     }
 
     console.log(`Lobby ID: ${currentLobbyId}, Username: ${username}`);
-    if (!CanvasManager.initCanvas('lobby-canvas', handleDrawEvent)) {
+    if (!CanvasManager.initCanvas('lobby-canvas', handleDrawEvent, socket)) { // Pass socket here
         handleFatalError("Failed to initialize lobby canvas.");
         return;
     }
@@ -61,7 +61,7 @@ function initializeLobby() {
     CanvasManager.setLineWidth(lineWidthSelector?.value || 5);
     CanvasManager.setTool('pencil');
 
-    setupSocketConnection(currentLobbyId, username);
+    setupSocketConnection(currentLobbyId, username); // Socket is initialized here
     setupActionListeners();
     populateEmojiPicker();
     // Initially disable AI button until host status is confirmed
@@ -73,7 +73,7 @@ function setupSocketConnection(lobbyId, username) {
 
     const socketPath = '/game/socket.io';
     console.log(`Connecting socket at ${socketPath}`);
-    socket = io({ path: socketPath });
+    socket = io({ path: socketPath }); // Initialize socket
 
     socket.on('connect', () => {
         console.log('Connected to server!', socket.id);
@@ -84,6 +84,7 @@ function setupSocketConnection(lobbyId, username) {
             statusDisplay.style.color = 'green';
         }
         if (!hasJoined) {
+            CanvasManager.initCanvas('lobby-canvas', handleDrawEvent, socket); // Re-init canvas with socket on connect/reconnect
             console.log(`Emitting join lobby for ${lobbyId} as ${username}`);
             socket.emit('join lobby', { lobbyId, username });
         } else {
@@ -168,7 +169,8 @@ function setupSocketConnection(lobbyId, username) {
 
     socket.on('lobby commands removed', ({ cmdIds, strokeId, playerId }) => {
         console.log(`Received removal: cmdIds=${cmdIds}, strokeId=${strokeId}, player=${playerId}`);
-        CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId);
+        // This is handled internally by historyManager via drawExternalCommand or undo
+        // CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId);
     });
 
     socket.on('lobby draw update', drawData => {

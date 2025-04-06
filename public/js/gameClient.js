@@ -2,7 +2,7 @@
 // (Restored original socket path)
 import * as UIManager from './uiManager.js';
 import * as CanvasManager from './canvasManager.js'; // Game uses canvas but without tools
-import * as VotingUI from './ui/votingUI.js';
+// import * as VotingUI from './ui/votingUI.js'; // VotingUI is used via UIManager
 import * as ChatUI from './ui/chatUI.js'; // Import ChatUI
 
 console.log("Game Client script loaded.");
@@ -33,7 +33,7 @@ function initializeGame() {
     console.log(`Initializing game for lobby: ${currentLobbyId}, user: ${username}`);
     // Initialize canvas but don't pass draw handler (no drawing tools here)
     // Game canvas doesn't need the event emitter callback
-    if (!CanvasManager.initCanvas('drawing-canvas', null)) {
+    if (!CanvasManager.initCanvas('drawing-canvas', null, socket)) { // Pass socket for potential future use? (Undo unlikely here)
         handleFatalError("Failed to initialize game canvas."); return;
     }
     // Game canvas starts disabled, enabled only by server state
@@ -150,7 +150,7 @@ function initializeGame() {
     socket.on('vote error', (message) => {
         console.warn("Vote Error:", message);
         ChatUI.addChatMessage({ text: `Vote Error: ${message}`, type: 'system' });
-        VotingUI.enableVotingButtons(); // Re-enable buttons on error
+        UIManager.enableVotingButtons(); // Re-enable buttons on error via UIManager
     });
 
     socket.on('vote accepted', () => {
@@ -198,7 +198,7 @@ function initializeGame() {
             if (e.target.tagName === 'BUTTON' && e.target.classList.contains('vote-button') && e.target.dataset.voteFor) {
                 const votedForId = e.target.dataset.voteFor;
                 console.log(`Voting for ${votedForId}`);
-                VotingUI.disableVotingButtons(); // Disable all buttons immediately
+                UIManager.disableVotingButtons(); // Disable all buttons immediately via UIManager
                 socket.emit('submit vote', votedForId);
             }
         });
