@@ -4,11 +4,11 @@
 import { initCore, getCanvas, getContext, setPlayerId as setCorePlayerId, getPlayerId, setEmitCallback, setSocketRef } from './canvas/canvasCore.js';
 import { setTool as setToolState, setColor as setToolColor, setLineWidth as setToolLineWidth } from './canvas/toolManager.js';
 import { enableDrawing as enableCoreDrawing, disableDrawing as disableCoreDrawing } from './canvas/canvasCore.js';
-import { initOverlay } from './canvas/overlayManager.js'; // <-- Import initOverlay
+import { initOverlay } from './canvas/overlayManager.js';
 import { initEventHandlers } from './canvas/eventHandlers.js';
 import { loadAndDrawHistory as loadHistory, drawExternalCommand as drawExternal, clearHistory } from './canvas/historyManager.js';
 import { clearCanvas as clearHistoryAndEmit } from './canvas/historyManager.js';
-import { undoLastAction as undo } from './canvas/undoManager.js';
+import { undoLastAction as undo } from './canvas/undoManager.js'; // Import the core undo function
 import { getDrawingDataURL as getDataURL } from './canvas/dataExporter.js';
 
 /**
@@ -27,7 +27,7 @@ export function initCanvas(canvasId, drawEventEmitter, socket = null) {
         return false; // Overlay initialization failed
     }
     setEmitCallback(drawEventEmitter);
-    setSocketRef(socket); // Store socket reference for undo
+    setSocketRef(socket); // Store socket reference (still useful for potential future needs)
     initEventHandlers(); // Attach mouse/touch listeners
     disableDrawing(); // Start disabled
     clearHistory(); // Reset history on init
@@ -116,10 +116,11 @@ export function drawExternalCommand(data) {
 
 /**
  * Undoes the last drawing action performed by the local player.
+ * @param {object} socket - The Socket.IO socket instance to emit the undo event.
  */
-export function undoLastAction() {
-    // The socket reference is now managed internally by canvasCore/undoManager
-    undo();
+export function undoLastAction(socket) { // <-- Accept socket argument again
+    // Pass the socket explicitly to the core undo function
+    undo(socket);
 }
 
 /**

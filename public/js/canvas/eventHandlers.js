@@ -132,6 +132,7 @@ function handleMouseDown(e) {
     // --- Tool-Specific Actions on Mouse Down ---
     if (currentTool === 'pencil' || currentTool === 'eraser') {
         currentStrokeId = generateStrokeId(); // Start a new stroke sequence
+        console.log(`[handleMouseDown] New stroke started: ${currentStrokeId}`); // Log new stroke ID
         // Set context properties for drawing
         context.lineWidth = currentLineWidth;
         context.strokeStyle = (currentTool === 'eraser') ? CANVAS_BACKGROUND_COLOR : currentStrokeStyle; // Eraser uses background color
@@ -185,6 +186,7 @@ function handleMouseDown(e) {
     } else if (currentTool === 'rectangle' || currentTool === 'ellipse') {
         // Start drawing a shape, record start coordinates
         currentStrokeId = generateStrokeId(); // Shapes are a single "stroke"
+        console.log(`[handleMouseDown] New shape stroke started: ${currentStrokeId}`); // Log new stroke ID
         shapeStartX = x;
         shapeStartY = y;
         // Preview will be drawn on the overlay during mouse move
@@ -297,6 +299,8 @@ function finishStroke(finalX, finalY) {
     const context = getContext();
     const myPlayerId = getPlayerId();
 
+    console.log(`[finishStroke] Finishing stroke. ID was: ${currentStrokeId}`); // Log before reset
+
     if (!context || !myPlayerId) return;
 
     if (currentTool === 'pencil' || currentTool === 'eraser') {
@@ -335,11 +339,13 @@ function finishStroke(finalX, finalY) {
 
     // --- VERIFY THIS SECTION ---
     // Reset drawing state variables *except* isDrawing (already false)
+    const previousStrokeId = currentStrokeId; // Store for logging
     currentStrokeId = null; // <-- THIS MUST BE HAPPENING RELIABLY
     shapeStartX = null;
     shapeStartY = null;
     startX = 0; // Reset start coords
     startY = 0;
+    console.log(`[finishStroke] Stroke ID reset from ${previousStrokeId} to ${currentStrokeId}`); // Log after reset
     // --- END VERIFICATION ---
 
     // Update cursor preview for the current position
@@ -410,7 +416,14 @@ function emitDrawSegment(x0, y0, x1, y1) {
     const myPlayerId = getPlayerId();
     const emitCallback = getEmitCallback();
     // Ensure drawing is active and necessary IDs are set
-    if (!emitCallback || !myPlayerId || !currentStrokeId) return;
+    if (!emitCallback || !myPlayerId || !currentStrokeId) {
+        // Add a warning if strokeId is missing during an active draw
+        if (getIsDrawing() && !currentStrokeId) {
+            console.warn("[emitDrawSegment] Attempted to emit segment but currentStrokeId is null!");
+        }
+        return;
+    }
+
 
     const cmdId = generateCommandId(); // Unique ID for this specific segment command
     const currentTool = getCurrentTool();

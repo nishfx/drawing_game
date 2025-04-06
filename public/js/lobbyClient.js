@@ -5,7 +5,7 @@ import * as ChatUI from './ui/chatUI.js';
 
 console.log("Lobby Client script loaded.");
 
-let socket = null;
+let socket = null; // Keep socket reference here
 let myPlayerId = null;
 let currentLobbyId = null;
 let isHost = false;
@@ -51,7 +51,8 @@ function initializeLobby() {
     }
 
     console.log(`Lobby ID: ${currentLobbyId}, Username: ${username}`);
-    if (!CanvasManager.initCanvas('lobby-canvas', handleDrawEvent, socket)) { // Pass socket here
+    // Initialize canvas WITHOUT socket initially, it will be re-init on connect
+    if (!CanvasManager.initCanvas('lobby-canvas', handleDrawEvent, null)) {
         handleFatalError("Failed to initialize lobby canvas.");
         return;
     }
@@ -83,13 +84,14 @@ function setupSocketConnection(lobbyId, username) {
             statusDisplay.textContent = 'Connected';
             statusDisplay.style.color = 'green';
         }
+        // Re-initialize canvasManager with the now connected socket
+        CanvasManager.initCanvas('lobby-canvas', handleDrawEvent, socket);
         if (!hasJoined) {
-            CanvasManager.initCanvas('lobby-canvas', handleDrawEvent, socket); // Re-init canvas with socket on connect/reconnect
             console.log(`Emitting join lobby for ${lobbyId} as ${username}`);
             socket.emit('join lobby', { lobbyId, username });
         } else {
             console.log("Reconnected, rejoining lobby state.");
-            socket.emit('join lobby', { lobbyId, username });
+            socket.emit('join lobby', { lobbyId, username }); // Re-emit join on reconnect
         }
     });
 
@@ -169,18 +171,10 @@ function setupSocketConnection(lobbyId, username) {
 
     socket.on('lobby commands removed', ({ cmdIds, strokeId, playerId }) => {
         console.log(`Received removal: cmdIds=${cmdIds}, strokeId=${strokeId}, player=${playerId}`);
-        // --- IMPORTANT: Process removal ONLY if it's NOT from the local player ---
-        // The local player's undo already happened instantly. This message is for others.
+        // Process removal ONLY if it's NOT from the local player
         if (playerId !== myPlayerId) {
              console.log(`Processing removal command from server for player ${playerId}`);
-             // Use the historyManager's remove function directly
-             // We need to import it if we call it here, OR rely on drawExternalCommand
-             // Let's stick to the facade:
-             // CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId);
-             // Actually, the historyManager's removeCommands handles the redraw.
-             // We need to import and call that directly for external removals.
-             // Let's rethink - maybe drawExternalCommand should handle 'remove' type?
-             // For now, let's just call the facade's removeCommands, accepting the console warning.
+             // Use the facade's removeCommands, accepting the console warning.
              CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId);
         } else {
             console.log(`Ignoring own removal command from server for player ${playerId}`);
@@ -289,7 +283,12 @@ function setupActionListeners() {
                 console.log(`Tool set to: ${selectedTool}`);
             } else if (button && button.id === 'undo-btn') {
                 console.log("Undo clicked");
-                CanvasManager.undoLastAction(socket);
+                // Pass the current socket instance when calling undo
+                if (socket) {
+                    CanvasManager.undoLastAction(socket); // <-- Pass socket here
+                } else {
+                    console.error("Cannot undo: Socket not available.");
+                }
             } else if (button && button.id === 'clear-canvas-btn') {
                 console.log("Clear Canvas clicked");
                 CanvasManager.clearCanvas(true);

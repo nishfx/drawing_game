@@ -1,12 +1,13 @@
 /* public/js/canvas/undoManager.js */
 // Handles the undo functionality.
 
-import { getPlayerId, getSocketRef } from './canvasCore.js';
+import { getPlayerId } from './canvasCore.js'; // Removed getSocketRef import
 import { getMyDrawHistory, getFullDrawHistory, removeCommands, redrawCanvasFromHistory } from './historyManager.js';
 
-export function undoLastAction() {
+// Accept socket as an argument
+export function undoLastAction(socket) {
     const myPlayerId = getPlayerId();
-    const socket = getSocketRef();
+    // const socket = getSocketRef(); // Don't get socket from core anymore
     const myDrawHistory = getMyDrawHistory(); // Get current history state
     const fullDrawHistory = getFullDrawHistory(); // Get current full history
 
@@ -42,16 +43,15 @@ export function undoLastAction() {
                 idsToRemoveFromFull.push(cmd.cmdId); // Collect IDs for server message
             }
         });
-        console.log(`Undo will remove ${idsToRemoveFromFull.length} commands for stroke ${strokeIdToUndo}.`);
+        console.log(`[undoManager] Found ${idsToRemoveFromFull.length} commands matching strokeId ${strokeIdToUndo}.`); // Added log
     } else {
         // If it was a single command (fill, shape, text), just use that one ID
         idsToRemoveFromFull.push(cmdIdToUndo);
-        console.log(`Undo will remove single command ${cmdIdToUndo}.`);
+        console.log(`[undoManager] Found single command ${cmdIdToUndo}.`); // Added log
     }
 
     // If there's anything to remove (locally or for server)
     if (idsToRemoveFromFull.length > 0) {
-        // --- CORRECTED LOCAL REMOVAL ---
         // Use the historyManager's remove function.
         // Prioritize removing by strokeId if it exists.
         removeCommands(
@@ -59,17 +59,17 @@ export function undoLastAction() {
             strokeIdToUndo, // Pass the strokeId if it exists
             myPlayerId
         );
-        // --- END CORRECTION ---
 
         // Ask the server to remove these commands for other players
         if (socket && socket.connected) {
             // Send either the strokeId (if available) or the list of cmdIds
-            // Server needs specific IDs if it wasn't a single strokeId action
             const undoData = strokeIdToUndo ? { strokeId: strokeIdToUndo } : { cmdIds: idsToRemoveFromFull };
             socket.emit('undo last draw', undoData);
             console.log("Sent undo request to server:", undoData);
         } else {
-            console.error("Cannot send undo request: No socket connected.");
+            console.error("Cannot send undo request: No socket or socket not connected.");
+            // Consider adding the command back to myDrawHistory if server fails?
+            // For now, local state is already updated.
         }
     } else {
         console.warn("Undo failed: Could not find commands to remove from full history for:", lastMyCommand);
