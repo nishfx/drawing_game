@@ -8,63 +8,46 @@ import { popLastMyCommand, removeCommands, redrawCanvasFromHistory, getFullDrawH
 // Accept socket as an argument
 export function undoLastAction(socket) {
     const myPlayerId = getPlayerId();
-
-    // Get the most recent command added by the local player
-    const lastMyCommand = popLastMyCommand(); // Use the controlled pop function
-
+    const lastMyCommand = popLastMyCommand();
     if (!lastMyCommand) {
-        console.log("Nothing in local history to undo.");
+        console.log("[UNDO] No commands in local history to undo.");
         return;
     }
 
-    if (!lastMyCommand.cmdId) { // Basic validation
-        console.error("Invalid command popped during undo:", lastMyCommand);
-        redrawCanvasFromHistory(); // Attempt to redraw to potentially fix state
+    if (!lastMyCommand.cmdId) {
+        console.error("[UNDO] Invalid command popped:", lastMyCommand);
+        redrawCanvasFromHistory();
         return;
     }
 
     const strokeIdToUndo = lastMyCommand.strokeId;
-    const cmdIdToUndo = lastMyCommand.cmdId; // Only used if strokeId is null
+    const cmdIdToUndo = lastMyCommand.cmdId;
 
-    console.log(`Initiating undo for stroke=${strokeIdToUndo} or cmd=${cmdIdToUndo}.`);
+    // ★ DEBUG LOG
+    console.log(`[UNDO] lastMyCommand => type=${lastMyCommand.type}, strokeId=${strokeIdToUndo}, cmdId=${cmdIdToUndo}`);
 
-    // Determine what to remove from the *full* history and what to send to server
-    let idsToRemoveLocally = [];
-    let strokeIdToRemoveLocally = null;
+    let idsToRemove = [];
+    let strokeIdToRemove = null;
     let undoDataForServer = {};
 
     if (strokeIdToUndo) {
-        // If it was part of a stroke, we remove by strokeId locally and tell server the strokeId
-        strokeIdToRemoveLocally = strokeIdToUndo;
+        strokeIdToRemove = strokeIdToUndo;
         undoDataForServer = { strokeId: strokeIdToUndo };
-        // We don't need to collect individual IDs for local removal when using strokeId
-        // But let's log how many *might* be removed for debugging:
-        const fullHistory = getFullDrawHistory_DEBUG(); // Use debug getter
-        const matchingCmds = fullHistory.filter(cmd => cmd.strokeId === strokeIdToUndo && cmd.playerId === myPlayerId);
-        console.log(`[undoManager] Will attempt to remove strokeId ${strokeIdToUndo}. Found ${matchingCmds.length} potential matching commands in full history.`);
-
+        const fullHist = getFullDrawHistory_DEBUG();
+        const matching = fullHist.filter(cmd => cmd.strokeId === strokeIdToUndo && cmd.playerId === myPlayerId);
+        console.log(`[UNDO] Attempt removing strokeId=${strokeIdToUndo} => ${matching.length} matches in full history.`);
     } else {
-        // If it was a single command (fill, shape, text), remove by cmdId locally and tell server the cmdId
-        idsToRemoveLocally.push(cmdIdToUndo);
-        undoDataForServer = { cmdIds: [cmdIdToUndo] }; // Send specific ID
-        console.log(`[undoManager] Will attempt to remove single command ${cmdIdToUndo}.`);
+        idsToRemove.push(cmdIdToUndo);
+        undoDataForServer = { cmdIds: [cmdIdToUndo] };
+        console.log(`[UNDO] Attempt removing single cmdId=${cmdIdToUndo}.`);
     }
 
-    // Perform the local removal using historyManager's removeCommands
-    // This function also handles the redraw
-    removeCommands(
-        idsToRemoveLocally,      // Pass cmdIds ONLY if no strokeId
-        strokeIdToRemoveLocally, // Pass the strokeId if it exists
-        myPlayerId
-    );
+    removeCommands(idsToRemove, strokeIdToRemove, myPlayerId);
 
-    // Ask the server to remove these commands for other players
     if (socket && socket.connected) {
         socket.emit('undo last draw', undoDataForServer);
-        console.log("Sent undo request to server:", undoDataForServer);
+        console.log("[UNDO] Sent request to server =>", undoDataForServer);
     } else {
-        console.error("Cannot send undo request: No socket or socket not connected.");
-        // Note: Local state is already updated. If server fails, clients might desync.
-        // Could potentially try re-adding the command locally, but that's complex.
+        console.error("[UNDO] No socket or not connected, cannot sync with server.");
     }
 }
