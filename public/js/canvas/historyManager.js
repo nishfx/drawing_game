@@ -66,51 +66,67 @@ export function loadAndDrawHistory(commands) {
  */
 export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerPlayerId = null) {
     if (!ownerPlayerId) {
-        console.warn("removeCommands called without ownerPlayerId. Skipping removal.");
+        console.warn("[removeCommands] Called without ownerPlayerId. Skipping removal.");
         return;
     }
     let removedCount = 0;
     const initialFullLength = fullDrawHistory.length;
     const initialMyLength = myDrawHistory.length;
 
+    console.log(`[removeCommands] Before - Full: ${initialFullLength}, My: ${initialMyLength}, StrokeID: ${strokeIdToRemove}, CmdIDs: ${idsToRemove?.join(',')}, Owner: ${ownerPlayerId}`);
+
+    let newFullHistory, newMyHistory;
+
     if (strokeIdToRemove) {
         // Filter based on strokeId and ownerPlayerId
-        fullDrawHistory = fullDrawHistory.filter(cmd => {
-            if (cmd.strokeId === strokeIdToRemove && cmd.playerId === ownerPlayerId) {
-                removedCount++;
-                return false; // Exclude this command
-            }
-            return true; // Keep this command
+        newFullHistory = fullDrawHistory.filter(cmd => {
+            const shouldRemove = cmd.strokeId === strokeIdToRemove && cmd.playerId === ownerPlayerId;
+            if (shouldRemove) removedCount++;
+            return !shouldRemove; // Keep if NOT removing
         });
-        myDrawHistory = myDrawHistory.filter(cmd => {
+        // Also filter myDrawHistory based on the same strokeId
+        newMyHistory = myDrawHistory.filter(cmd => {
             return !(cmd.strokeId === strokeIdToRemove && cmd.playerId === ownerPlayerId);
         });
-        console.log(`Removed ${removedCount} commands for stroke=${strokeIdToRemove} from player=${ownerPlayerId}.`);
+        console.log(`[removeCommands] Filtered by strokeId=${strokeIdToRemove}. Matched: ${removedCount}`);
 
-    } else if (idsToRemove.length > 0) {
+    } else if (idsToRemove && idsToRemove.length > 0) {
         const idSet = new Set(idsToRemove);
         // Filter based on command ID set and ownerPlayerId
-        fullDrawHistory = fullDrawHistory.filter(cmd => {
-            if (idSet.has(cmd.cmdId) && cmd.playerId === ownerPlayerId) {
-                removedCount++;
-                return false; // Exclude this command
-            }
-            return true; // Keep this command
+        newFullHistory = fullDrawHistory.filter(cmd => {
+            const shouldRemove = idSet.has(cmd.cmdId) && cmd.playerId === ownerPlayerId;
+            if (shouldRemove) removedCount++;
+            return !shouldRemove; // Keep if NOT removing
         });
-        myDrawHistory = myDrawHistory.filter(cmd => {
-            return !(idSet.has(cmd.cmdId) && cmd.playerId === ownerPlayerId);
+         // Also filter myDrawHistory based on the same cmdIds
+        newMyHistory = myDrawHistory.filter(cmd => {
+             return !(idSet.has(cmd.cmdId) && cmd.playerId === ownerPlayerId);
         });
-        console.log(`Removed ${removedCount} commands by cmdId(s) from player=${ownerPlayerId}.`);
+        console.log(`[removeCommands] Filtered by cmdIds=${idsToRemove.join(',')}. Matched: ${removedCount}`);
+
+    } else {
+        // No valid criteria provided, don't modify history
+        console.warn("[removeCommands] No strokeId or cmdIds provided for removal.");
+        newFullHistory = fullDrawHistory; // Keep original reference
+        newMyHistory = myDrawHistory;   // Keep original reference
     }
+
+    // --- Crucial: Assign the new arrays back to the module's state variables ---
+    fullDrawHistory = newFullHistory;
+    myDrawHistory = newMyHistory;
+    // ---
+
+    console.log(`[removeCommands] After - Full: ${fullDrawHistory.length}, My: ${myDrawHistory.length}`);
 
     // If any commands were actually removed, redraw the canvas
     if (removedCount > 0) {
-        console.log(`History lengths changed: Full ${initialFullLength}->${fullDrawHistory.length}, My ${initialMyLength}->${myDrawHistory.length}. Redrawing.`);
+        console.log(`[removeCommands] Redrawing canvas after removing ${removedCount} commands.`);
         redrawCanvasFromHistory();
     } else {
-        console.warn(`No commands found to remove for stroke=${strokeIdToRemove}, cmdIds=${idsToRemove.length}, owner=${ownerPlayerId}.`);
+        console.warn(`[removeCommands] No commands found to remove for stroke=${strokeIdToRemove}, cmdIds=${idsToRemove?.join(',')}, owner=${ownerPlayerId}. No redraw.`);
     }
 }
+
 
 /**
  * Clears the canvas and redraws all commands currently stored in `fullDrawHistory`.
@@ -119,7 +135,7 @@ export function redrawCanvasFromHistory() {
     const context = getContext();
     const canvas = getCanvas();
     if (!context || !canvas) return;
-    console.log(`Redrawing canvas from ${fullDrawHistory.length} commands.`);
+    console.log(`[redrawCanvasFromHistory] Redrawing canvas from ${fullDrawHistory.length} commands.`); // Added logging context
 
     // Save current context state
     context.save();
@@ -130,11 +146,13 @@ export function redrawCanvasFromHistory() {
     clearOverlay(); // Also clear the overlay
 
     // Execute each command in the history
-    fullDrawHistory.forEach(cmd => {
+    // Use a temporary copy in case history is modified during iteration (less likely here)
+    const historyToDraw = [...fullDrawHistory];
+    historyToDraw.forEach(cmd => {
         try {
             executeCommand(cmd, context);
         } catch (error) {
-            console.error("Error redrawing command:", cmd, error);
+            console.error("[redrawCanvasFromHistory] Error redrawing command:", cmd, error);
             // Optionally remove the faulty command from history here
         }
     });
@@ -142,7 +160,7 @@ export function redrawCanvasFromHistory() {
     // Restore context state
     context.restore();
 
-    console.log("Canvas redraw complete.");
+    console.log("[redrawCanvasFromHistory] Canvas redraw complete.");
     // Restore cursor preview if mouse is still over canvas (handled by overlayManager)
     // updateCursorPreviewIfNeeded(); // Let overlayManager handle this based on state
 }
@@ -242,7 +260,7 @@ export function clearCanvas(emitEvent = true) {
     // If any commands were found, remove them locally and redraw
     if (myCmdIds.length > 0) {
         removeCommands(myCmdIds, null, myPlayerId); // Remove by IDs, specify owner
-        console.log("Locally removed all my drawing commands. Redrawing canvas...");
+        console.log("Locally removed all my drawing commands."); // Message adjusted
         // Redraw is handled within removeCommands
     } else {
         console.log("No local drawing commands to clear.");

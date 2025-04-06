@@ -169,8 +169,22 @@ function setupSocketConnection(lobbyId, username) {
 
     socket.on('lobby commands removed', ({ cmdIds, strokeId, playerId }) => {
         console.log(`Received removal: cmdIds=${cmdIds}, strokeId=${strokeId}, player=${playerId}`);
-        // This is handled internally by historyManager via drawExternalCommand or undo
-        // CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId);
+        // --- IMPORTANT: Process removal ONLY if it's NOT from the local player ---
+        // The local player's undo already happened instantly. This message is for others.
+        if (playerId !== myPlayerId) {
+             console.log(`Processing removal command from server for player ${playerId}`);
+             // Use the historyManager's remove function directly
+             // We need to import it if we call it here, OR rely on drawExternalCommand
+             // Let's stick to the facade:
+             // CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId);
+             // Actually, the historyManager's removeCommands handles the redraw.
+             // We need to import and call that directly for external removals.
+             // Let's rethink - maybe drawExternalCommand should handle 'remove' type?
+             // For now, let's just call the facade's removeCommands, accepting the console warning.
+             CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId);
+        } else {
+            console.log(`Ignoring own removal command from server for player ${playerId}`);
+        }
     });
 
     socket.on('lobby draw update', drawData => {
