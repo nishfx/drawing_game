@@ -1,0 +1,22 @@
+/* public/css/drawing-area.css */
+
+#drawing-controls {
+    display: flex; flex-direction: column; align-items: center; flex-grow: 1; min-width: 0;
+    position: relative; /* Positioning context for overlay */
+    /* Padding removed */
+}
+/* Make sure we do NOT force a crosshair in the CSS; we let JS handle 'none' vs. 'default' */
+#drawing-canvas {
+    border: 1px solid #dee2e6;
+    background-color: #fff;
+    touch-action: none;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    /* REMOVE any forced "cursor: crosshair" here */
+    /* cursor: crosshair;  <-- remove this */
+}
+#ready-button { background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1em; margin-top: 10px; transition: background-color 0.2s ease; flex-shrink: 0; }
+#ready-button:hover { background-color: #218838; }
+#ready-button:disabled { background-color: #6c757d; cursor: not-allowed; }

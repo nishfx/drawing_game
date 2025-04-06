@@ -1,0 +1,95 @@
+/* public/css/responsive.css */
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+    #main-layout {
+        flex-direction: column;
+        align-items: center;
+    }
+    #player-list-area {
+        width: 90%;
+        max-width: 400px;
+        order: 1;
+        padding-top: 10px;
+        max-height: 200px;
+    }
+    #lobby-title-display {
+        display: none;
+    }
+    #lobby-canvas-area { /* Lobby canvas parent */
+        width: 90%;
+        order: 2;
+        position: relative; /* Ensure relative positioning */
+        /* Padding removed */
+    }
+    #chat-area {
+        width: 90%;
+        max-width: 400px;
+        order: 3;
+        height: 250px;
+    }
+    #game-area {
+        flex-direction: column;
+        align-items: center;
+    }
+    #drawing-controls { /* Game canvas parent */
+        width: 100%;
+        position: relative; /* Ensure relative positioning */
+         /* Padding removed */
+    }
+    #drawing-canvas {
+        width: 100%;
+        height: auto;
+        max-height: 400px;
+    }
+    #chat-area { /* Adjust game chat area too */
+         width: 100%;
+         max-width: none;
+         height: 200px;
+    }
+    #ai-feature-area {
+        padding: 8px; /* Adjust padding */
+        align-items: flex-start; /* Align items top */
+    }
+}
+
+@media (max-width: 600px) {
+    #lobby-drawing-tools {
+        justify-content: center; /* Center tools */
+    }
+    .tool-button {
+        width: 35px;
+        height: 35px;
+        font-size: 1.3em;
+        line-height: 35px;
+    }
+    #lobby-drawing-tools input[type="color"] {
+        width: 40px;
+        height: 35px;
+    }
+     #lobby-drawing-tools select {
+        height: 35px;
+        padding: 5px 8px;
+    }
+    #word-display-area {
+        font-size: 1.5em;
+        letter-spacing: 0.1em;
+    }
+    .voting-option img {
+        width: 150px;
+        height: auto;
+    }
+    #ai-feature-area {
+        flex-direction: column; /* Stack button and text box */
+        align-items: stretch; /* Make them full width */
+        gap: 5px;
+    }
+    #ask-ai-btn {
+        width: 100%; /* Full width button */
+        height: auto; /* Reset height */
+        padding: 10px 15px; /* Adjust padding */
+    }
+    #ai-interpretation-box {
+        width: 100%; /* Full width text box */
+    }
+}

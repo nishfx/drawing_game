@@ -1,0 +1,51 @@
+/* public/css/layout.css */
+
+/* Main layout container */
+#main-layout {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    max-width: 1300px;
+    gap: 20px; /* Consistent gap */
+    align-items: stretch; /* Make columns equal height */
+}
+
+/* Wrapper for word display + game area */
+#game-area-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+    border: 1px solid #ccc;
+}
+
+#word-display-area {
+    text-align: center;
+    padding: 15px;
+    font-size: 2em;
+    font-weight: bold;
+    letter-spacing: 0.2em;
+    min-height: 1.5em;
+    background-color: #e9ecef;
+    border-bottom: 1px solid #ccc;
+    box-sizing: border-box;
+    color: #333;
+    flex-shrink: 0;
+}
+#word-display-area .is-word {
+    color: #00695c;
+    letter-spacing: 0.1em;
+}
+
+/* Container for canvas and chat */
+#game-area {
+    display: flex;
+    gap: 0; /* No gap between canvas and chat */
+    padding: 15px;
+    box-sizing: border-box;
+    flex-grow: 1;
+    min-height: 0; /* Allow shrinking */
+}

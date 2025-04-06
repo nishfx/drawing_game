@@ -1,0 +1,6 @@
+/* public/css/timer.css */
+
+/* Timer Progress Bar Styles */
+#timer-container { width: 80%; max-width: 600px; height: 25px; background-color: #e0e0e0; border-radius: 15px; margin: 10px auto; overflow: hidden; position: relative; border: 1px solid #ccc; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+#timer-bar { height: 100%; width: 100%; background-color: #4caf50; border-radius: 15px; transition: width 0.1s linear, background-color 0.3s ease; text-align: center; line-height: 25px; color: white; font-weight: bold; }
+#timer-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; text-align: center; line-height: 25px; color: white; font-size: 0.9em; font-weight: bold; text-shadow: 1px 1px 1px rgba(0,0,0,0.5); pointer-events: none; }

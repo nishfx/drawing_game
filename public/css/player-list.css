@@ -1,0 +1,59 @@
+/* public/css/player-list.css */
+
+/* Player list area (bordered box) */
+#player-list-area {
+    width: 260px; /* Set width directly */
+    border: 1px solid #ccc;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0; /* Prevent shrinking */
+    position: relative; /* Needed for absolute positioning of title */
+    padding-top: 35px; /* Increased space for the title inside */
+}
+
+/* Style for Lobby Title (Positioned inside the top padding) */
+#lobby-title-display {
+    position: absolute; /* Position relative to player-list-area */
+    top: 8px; /* Adjusted vertical position */
+    left: 10px; /* Align with padding */
+    right: 10px; /* Stretch to other side padding */
+    margin: 0; /* Reset margins */
+    text-align: center; /* Center the text */
+    font-size: 0.9em; /* Smaller font */
+    color: purple; /* Purple color */
+    font-weight: bold; /* Bold text */
+    white-space: nowrap; /* Prevent wrapping */
+    overflow: hidden; /* Hide overflow */
+    text-overflow: ellipsis; /* Add ellipsis if too long */
+}
+
+
+/* Style for Players heading and count */
+#player-list-area h3 {
+    margin-top: 0; /* Reset margin */
+    margin-bottom: 10px;
+    text-align: center;
+    font-size: 1.2em;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+    flex-shrink: 0;
+}
+#player-count-display {
+    font-weight: normal;
+    font-size: 0.9em;
+    color: #555;
+}
+
+#player-list { list-style-type: none; padding: 0; margin: 0; flex-grow: 1; overflow-y: auto; /* Scroll only the list */ }
+#player-list li { padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 0.95em; word-break: break-word; display: flex; align-items: center; gap: 8px; }
+#player-list li:last-child { border-bottom: none; }
+#player-list li span[style*="bold"] { font-weight: bold; background-color: #f0f8ff; }
+.player-avatar { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.2); flex-shrink: 0; }
+.host-indicator { font-weight: bold; color: #e67e22; margin-left: auto; font-size: 0.8em; background-color: #fdf3e1; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }

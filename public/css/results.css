@@ -1,0 +1,23 @@
+/* public/css/results.css */
+
+#results-area {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #ccc;
+    padding: 15px;
+    flex-shrink: 0;
+}
+#results-area h3 {
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #495057;
+}
+
+/* Results Area Specific Styles */
+.results-list { list-style-type: none; padding: 0 15px; text-align: left; }
+.results-item { padding: 8px 0; border-bottom: 1px solid #eee; font-size: 1em; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 5px; }
+.results-item:last-child { border-bottom: none; }
+.results-item .player-name { font-weight: bold; margin-right: 5px; }
+.results-item .player-score { margin-right: auto; padding-left: 5px; }
+.results-item .player-votes { font-size: 0.9em; color: #28a745; margin-left: 10px; }
+.results-thumbnail { width: 40px; height: 30px; vertical-align: middle; margin-left: 10px; border: 1px solid #ccc; object-fit: contain; background-color: #fff; }

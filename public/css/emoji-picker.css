@@ -1,0 +1,6 @@
+/* public/css/emoji-picker.css */
+
+/* --- Emoji Picker Styles --- */
+#emoji-picker { display: none; position: absolute; bottom: 100%; right: 0; margin-bottom: 5px; background-color: white; border: 1px solid #ccc; border-radius: 8px; padding: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.15); width: 280px; max-height: 200px; overflow-y: auto; z-index: 10; }
+#emoji-picker span { display: inline-block; padding: 5px; font-size: 1.4em; cursor: pointer; border-radius: 4px; }
+#emoji-picker span:hover { background-color: #eee; }

@@ -1,0 +1,24 @@
+/* public/css/voting.css */
+
+#voting-area {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #ccc;
+    padding: 15px;
+    flex-shrink: 0;
+}
+#voting-area h3 {
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #495057;
+}
+
+/* Voting Area Specific Styles */
+.voting-options-container { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
+.voting-option { border: 1px solid #ccc; padding: 10px; text-align: center; background-color: #fff; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.voting-option img { width: 180px; height: 135px; border: 1px solid #eee; object-fit: contain; background-color: #fff; display: block; margin-bottom: 5px; }
+.voting-option p { margin: 0 0 8px 0; font-weight: bold; font-size: 0.9em; }
+.voting-option .vote-button { background-color: #17a2b8; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: background-color 0.2s ease; }
+.voting-option .vote-button:hover { background-color: #138496; }
+.voting-option .vote-button:disabled { background-color: #6c757d; cursor: not-allowed; }
+.voting-option .own-drawing-text { font-size: 0.8em; font-style: italic; color: #555; margin-top: 8px; }
