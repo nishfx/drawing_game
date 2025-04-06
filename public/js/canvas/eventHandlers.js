@@ -333,12 +333,14 @@ function finishStroke(finalX, finalY) {
         emitCommand(command);
     }
 
+    // --- VERIFY THIS SECTION ---
     // Reset drawing state variables *except* isDrawing (already false)
-    currentStrokeId = null;
+    currentStrokeId = null; // <-- THIS MUST BE HAPPENING RELIABLY
     shapeStartX = null;
     shapeStartY = null;
     startX = 0; // Reset start coords
     startY = 0;
+    // --- END VERIFICATION ---
 
     // Update cursor preview for the current position
     if (getIsMouseOverCanvas()) {
