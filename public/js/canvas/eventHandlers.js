@@ -57,15 +57,20 @@ function handleMouseEnter(e) {
     const { x, y } = getEventCoords(e);
     currentMouseX = x;
     currentMouseY = y;
-    console.log(`[MOUSEENTER] isDrawing=${getIsDrawing()}, x=${x}, y=${y}`);
+    // console.log(`[MOUSEENTER] isDrawing=${getIsDrawing()}, x=${x}, y=${y}`); // Reduce noise
 
     if (e.buttons === 1 && getIsDrawing()) {
-        console.log("[MOUSEENTER] Re-entered with mouse down, continuing stroke");
+        // console.log("[MOUSEENTER] Re-entered with mouse down, continuing stroke"); // Reduce noise
         lastX = x;
         lastY = y;
         const ctx = getContext();
         if (ctx) {
-            ctx.beginPath();
+            // Ensure correct state is reapplied on re-entry
+            const tool = getCurrentTool();
+            ctx.globalCompositeOperation = (tool === 'eraser') ? 'destination-out' : 'source-over';
+            ctx.lineWidth = getCurrentLineWidth();
+            ctx.strokeStyle = (tool === 'eraser') ? '#000000' : getCurrentColor();
+            ctx.beginPath(); // Start a new path segment on re-entry
             ctx.moveTo(x, y);
         }
         clearOverlay();
@@ -79,7 +84,7 @@ function handleMouseLeave(e) {
     setIsMouseOverCanvas(false);
     clearOverlay();
     setCursorStyle();
-    console.log(`[MOUSELEAVE] isDrawing=${getIsDrawing()}`);
+    // console.log(`[MOUSELEAVE] isDrawing=${getIsDrawing()}`); // Reduce noise
 }
 
 function handleMouseDown(e) {
@@ -87,7 +92,6 @@ function handleMouseDown(e) {
     if (!isDrawingEnabled() || !myPlayerId) return;
     if (e.button !== 0 && e.type !== 'touchstart') return;
 
-    // Sync overlay before coords
     resyncOverlayPosition();
     const { x, y } = getEventCoords(e);
     const ctx = getContext();
@@ -113,79 +117,62 @@ function handleMouseDown(e) {
     switch (tool) {
         case 'pencil':
         case 'eraser':
-            // Create a single strokeId for the entire mouse-drag
             currentStrokeId = generateStrokeId();
             console.log(`[MOUSEDOWN] Created strokeId=${currentStrokeId} for pencil/eraser`);
 
-            // --- FIX: Apply correct composite operation immediately ---
+            // Set the correct operation for the *entire* stroke from the start
             ctx.globalCompositeOperation = (tool === 'eraser') ? 'destination-out' : 'source-over';
-            // --- End FIX ---
-
-            // Draw a tiny dot immediately
             ctx.lineWidth = lw;
-            // --- FIX: Eraser color doesn't matter for destination-out, but set consistently ---
             ctx.strokeStyle = (tool === 'eraser') ? '#000000' : col; // Use black for eraser shape
-            // --- End FIX ---
+
+            // Draw initial dot
             ctx.beginPath();
             ctx.moveTo(x, y);
-            ctx.lineTo(x + 0.01, y + 0.01); // Tiny segment to ensure dot appears
+            ctx.lineTo(x + 0.01, y + 0.01); // Tiny segment
             ctx.stroke();
-            // Emit that single dot
-            emitDrawSegment(x, y, x + 0.01, y + 0.01);
+            emitDrawSegment(x, y, x + 0.01, y + 0.01); // Emit the dot
+            // Keep the path open for mousemove
+            ctx.beginPath(); // Start the *actual* path for mousemove
+            ctx.moveTo(x, y);
             break;
 
         case 'text': {
-            // Single instant action with a new strokeId
-            setIsDrawing(false);
+            setIsDrawing(false); // Text is instant
             const userText = prompt("Enter text:");
             if (userText && userText.trim()) {
                 const strokeId = generateStrokeId();
                 const cmdId = generateCommandId();
                 console.log(`[TEXT] strokeId=${strokeId}, cmdId=${cmdId}, x=${x}, y=${y}, text="${userText}"`);
                 const command = {
-                    cmdId,
-                    strokeId,
-                    playerId: myPlayerId,
-                    type: 'text',
-                    x, y,
-                    text: userText.trim(),
-                    color: col,
-                    size: lw,
-                    tool: 'text'
+                    cmdId, strokeId, playerId: myPlayerId, type: 'text',
+                    x, y, text: userText.trim(), color: col, size: lw, tool: 'text'
                 };
-                executeCommand(command, ctx);
+                executeCommand(command, ctx); // Draw locally
                 addCommandToHistory(command);
                 emitCommand(command);
             }
-            updateCursorPreview(x, y);
+            updateCursorPreview(x, y); // Show preview again
             break;
         }
 
         case 'fill': {
-            // Single instant action with a new strokeId
-            setIsDrawing(false);
+            setIsDrawing(false); // Fill is instant
             const strokeId = generateStrokeId();
             const cmdId = generateCommandId();
             console.log(`[FILL] strokeId=${strokeId}, cmdId=${cmdId}, x=${x}, y=${y}, color=${col}`);
             const command = {
-                cmdId,
-                strokeId,
-                playerId: myPlayerId,
-                type: 'fill',
-                x, y,
-                color: col,
-                tool: 'fill'
+                cmdId, strokeId, playerId: myPlayerId, type: 'fill',
+                x, y, color: col, tool: 'fill'
             };
-            executeCommand(command, ctx);
+            executeCommand(command, ctx); // Draw locally
             addCommandToHistory(command);
             emitCommand(command);
-            updateCursorPreview(x, y);
+            updateCursorPreview(x, y); // Show preview again
             break;
         }
 
         case 'rectangle':
         case 'ellipse':
-            // Create strokeId for the entire shape
             currentStrokeId = generateStrokeId();
             shapeStartX = x;
             shapeStartY = y;
@@ -218,16 +205,18 @@ function handleMouseMove(e) {
     switch (tool) {
         case 'pencil':
         case 'eraser':
-            console.log(`[MOUSEMOVE] pencil/eraser from (${lastX},${lastY}) to (${x},${y}), strokeId=${currentStrokeId}`);
-            // --- FIX: Ensure composite operation is set correctly for the stroke ---
-            ctx.globalCompositeOperation = (tool === 'eraser') ? 'destination-out' : 'source-over';
-            // --- End FIX ---
+            // console.log(`[MOUSEMOVE] pencil/eraser from (${lastX},${lastY}) to (${x},${y}), strokeId=${currentStrokeId}`); // Reduce noise
+            // State (compositeOp, lineWidth, strokeStyle) should already be set from mousedown
             ctx.lineTo(x, y);
             ctx.stroke();
-            // All segments in this drag share currentStrokeId
+            // Emit segment using the strokeId created on mousedown
             emitDrawSegment(lastX, lastY, x, y, currentStrokeId);
+            // Update last position *after* emitting segment using previous last position
             lastX = x;
             lastY = y;
+            // Keep the path going for the next segment
+            ctx.beginPath(); // Start new segment path
+            ctx.moveTo(x, y); // Move to current point
             break;
 
         case 'rectangle':
@@ -237,28 +226,24 @@ function handleMouseMove(e) {
             overlayCtx.globalCompositeOperation = 'source-over';
             overlayCtx.strokeStyle = getCurrentColor();
             overlayCtx.lineWidth = getCurrentLineWidth();
-
-            const x0 = shapeStartX;
-            const y0 = shapeStartY;
             overlayCtx.beginPath();
             if (tool === 'rectangle') {
-                const rx = Math.min(x0, x);
-                const ry = Math.min(y0, y);
-                const rw = Math.abs(x - x0);
-                const rh = Math.abs(y - y0);
+                const rx = Math.min(shapeStartX, x);
+                const ry = Math.min(shapeStartY, y);
+                const rw = Math.abs(x - shapeStartX);
+                const rh = Math.abs(y - shapeStartY);
                 overlayCtx.rect(rx, ry, rw, rh);
-            } else {
-                const cx = (x0 + x) / 2;
-                const cy = (y0 + y) / 2;
-                const rx = Math.abs(x - x0) / 2;
-                const ry = Math.abs(y - y0) / 2;
+            } else { // ellipse
+                const cx = (shapeStartX + x) / 2;
+                const cy = (shapeStartY + y) / 2;
+                const rx = Math.abs(x - shapeStartX) / 2;
+                const ry = Math.abs(y - shapeStartY) / 2;
                 overlayCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
             }
             overlayCtx.stroke();
             overlayCtx.restore();
             break;
 
-        // text/fill do nothing on mousemove
         default:
             break;
     }
@@ -266,18 +251,18 @@ function handleMouseMove(e) {
 
 function handleGlobalMouseUp(e) {
     if (getIsDrawing()) {
-        console.log("[GLOBAL MOUSEUP] finishing stroke");
+        // console.log("[GLOBAL MOUSEUP] finishing stroke"); // Reduce noise
         const finalX = currentMouseX;
         const finalY = currentMouseY;
-        setIsDrawing(false);
+        setIsDrawing(false); // Set state BEFORE finishing stroke logic
         finishStroke(finalX, finalY);
         clearOverlay();
-        setCursorStyle();
+        setCursorStyle(); // Reset cursor style (e.g., remove 'none')
     }
 }
 
 function handleMouseUp(e) {
-    // Just let handleGlobalMouseUp do the actual finishing
+    // Let handleGlobalMouseUp handle the logic to ensure it fires even if mouse leaves canvas
 }
 
 function finishStroke(finalX, finalY) {
@@ -289,19 +274,17 @@ function finishStroke(finalX, finalY) {
     if (!ctx || !myPlayerId) return;
 
     if (tool === 'pencil' || tool === 'eraser') {
-        // The entire drag's lines are already emitted with currentStrokeId
-        ctx.beginPath(); // break the path
-        // --- FIX: Reset composite operation after stroke ---
+        // Stroke segments already drawn and emitted.
+        ctx.beginPath(); // End the current path explicitly.
+        // Reset composite operation to default after finishing the stroke.
         ctx.globalCompositeOperation = 'source-over';
-        // --- End FIX ---
     }
     else if (tool === 'rectangle' || tool === 'ellipse') {
-        // Save a single shape command
-        clearOverlay();
+        clearOverlay(); // Clear the temporary shape preview
         const cmdId = generateCommandId();
         const command = {
             cmdId,
-            strokeId: currentStrokeId,
+            strokeId: currentStrokeId, // Use the strokeId generated on mousedown
             playerId: myPlayerId,
             type: (tool === 'rectangle') ? 'rect' : 'ellipse',
             x0: shapeStartX,
@@ -310,14 +293,14 @@ function finishStroke(finalX, finalY) {
             y1: finalY,
             color: getCurrentColor(),
             size: getCurrentLineWidth(),
-            tool
+            tool // Include the specific tool used
         };
-        executeCommand(command, ctx);
+        executeCommand(command, ctx); // Draw the final shape on the main canvas
         addCommandToHistory(command);
         emitCommand(command);
     }
 
-    // Reset stroke data
+    // Reset stroke-specific state
     currentStrokeId = null;
     shapeStartX = null;
     shapeStartY = null;
@@ -343,18 +326,20 @@ function handleTouchMove(e) {
 function handleTouchEnd(e) {
     const canvas = getCanvas();
     if (e.target !== canvas || !isDrawingEnabled() || !getPlayerId()) {
-        setIsDrawing(false);
+        setIsDrawing(false); // Ensure drawing state is reset if touch ends unexpectedly
         return;
     }
+    // Use changedTouches for touchend/touchcancel
     if (e.changedTouches.length > 0) {
-        resyncOverlayPosition();
-        const { x, y } = getEventCoords(e);
-        currentMouseX = x;
+        resyncOverlayPosition(); // Ensure overlay is correct before getting final coords
+        const { x, y } = getEventCoords(e); // Get coords from the ended touch
+        currentMouseX = x; // Update final position
         currentMouseY = y;
-        if (getIsDrawing()) {
-            handleGlobalMouseUp(e);
+        if (getIsDrawing()) { // Check if we were actually drawing
+            handleGlobalMouseUp(e); // Trigger the same cleanup/finish logic
         }
     } else {
+        // Fallback if changedTouches isn't available, though it should be
         if (getIsDrawing()) {
             handleGlobalMouseUp(e);
         }
@@ -372,10 +357,14 @@ function emitDrawSegment(x0, y0, x1, y1, forcedStrokeId = null) {
     const cmdId = generateCommandId();
     const currentTool = getCurrentTool();
 
-    // Use existing strokeId from handleMouseDown or fallback (edge cases)
-    const segStrokeId = forcedStrokeId || currentStrokeId || generateStrokeId();
+    // Use existing strokeId from handleMouseDown or fallback (shouldn't happen often)
+    const segStrokeId = forcedStrokeId || currentStrokeId;
+    if (!segStrokeId) {
+        console.warn("[EMIT SEGMENT] Missing strokeId!");
+        return; // Don't emit if strokeId is missing
+    }
 
-    console.log(`[EMIT SEGMENT] tool=${currentTool}, strokeId=${segStrokeId}, cmdId=${cmdId}, from=(${x0},${y0}) to=(${x1},${y1})`);
+    // console.log(`[EMIT SEGMENT] tool=${currentTool}, strokeId=${segStrokeId}, cmdId=${cmdId}, from=(${x0},${y0}) to=(${x1},${y1})`); // Reduce noise
 
     const command = {
         cmdId,
@@ -383,10 +372,9 @@ function emitDrawSegment(x0, y0, x1, y1, forcedStrokeId = null) {
         playerId: myPlayerId,
         type: 'line',
         x0, y0, x1, y1,
-        tool: currentTool,
-        // --- FIX: Eraser command doesn't need color, but send consistent data ---
-        color: (currentTool === 'eraser') ? '#000000' : getCurrentColor(), // Send black for eraser
-        // --- End FIX ---
+        tool: currentTool, // Ensure the correct tool is sent
+        // Color is only relevant for non-eraser tools, but send consistently
+        color: (currentTool === 'eraser') ? '#000000' : getCurrentColor(),
         size: getCurrentLineWidth()
     };
 
@@ -397,7 +385,7 @@ function emitDrawSegment(x0, y0, x1, y1, forcedStrokeId = null) {
 function emitCommand(command) {
     const emitCallback = getEmitCallback();
     if (emitCallback && command) {
-        console.log("[EMIT COMMAND] =>", command);
+        // console.log("[EMIT COMMAND] =>", command); // Reduce noise
         emitCallback(command);
     }
 }
