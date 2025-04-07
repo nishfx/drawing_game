@@ -4,21 +4,17 @@ import { getContext, getCanvas, getPlayerId, CANVAS_BACKGROUND_COLOR, getEmitCal
 import { executeCommand } from './drawingExecutor.js';
 import { generateCommandId } from './canvasUtils.js';
 
-// Keep these to inspect
 let _myDrawHistory = [];
 let _fullDrawHistory = [];
-const MAX_HISTORY = 500;
+const MAX_HISTORY = 500; // Adjust as needed
 
-// --- Functions ---
-
-// Getter for debugging or specific needs (use cautiously)
+// --- GETTERS (debug) ---
 export function getFullDrawHistory_DEBUG() {
     return _fullDrawHistory;
 }
 export function getMyDrawHistory_DEBUG() {
     return _myDrawHistory;
 }
-
 
 export function clearHistory() {
     _myDrawHistory = [];
@@ -27,8 +23,7 @@ export function clearHistory() {
 }
 
 /**
- * Adds a completed drawing command to the appropriate history arrays.
- * @param {Object} command - The command object to add.
+ * Adds a completed command to the histories.
  */
 export function addCommandToHistory(command) {
     const myPlayerId = getPlayerId();
@@ -37,41 +32,41 @@ export function addCommandToHistory(command) {
         return;
     }
 
-    // ★ DEBUG LOG
+    // [DEBUG ADDED]
     console.log(`[HISTORY] ADD cmdId=${command.cmdId}, strokeId=${command.strokeId}, type=${command.type}, player=${command.playerId}`);
 
     _fullDrawHistory.push(command);
     if (_fullDrawHistory.length > MAX_HISTORY) {
-        _fullDrawHistory.shift();
+        const removed = _fullDrawHistory.shift();
+        console.warn(`[HISTORY] _fullDrawHistory exceeded ${MAX_HISTORY}, SHIFTED out cmdId=${removed?.cmdId}, strokeId=${removed?.strokeId}, type=${removed?.type}`);
     }
 
     if (command.playerId === myPlayerId && command.type !== 'clear') {
         _myDrawHistory.push(command);
         if (_myDrawHistory.length > MAX_HISTORY) {
-            _myDrawHistory.shift();
+            const removedLocal = _myDrawHistory.shift();
+            console.warn(`[HISTORY] _myDrawHistory exceeded ${MAX_HISTORY}, SHIFTED out cmdId=${removedLocal?.cmdId}, strokeId=${removedLocal?.strokeId}, type=${removedLocal?.type}`);
         }
     }
+
+    // [DEBUG ADDED] Log current lengths
+    console.log(`[DEBUG] _fullDrawHistory.size=${_fullDrawHistory.length}, _myDrawHistory.size=${_myDrawHistory.length}`);
 }
 
 /**
- * Removes and returns the last command added by the local player for undo purposes.
- * Returns null if the history is empty.
- * @returns {Object|null} The last command object or null.
+ * Removes and returns the last command added by the local player.
  */
 export function popLastMyCommand() {
     if (_myDrawHistory.length === 0) {
         return null;
     }
     const popped = _myDrawHistory.pop();
-    // ★ DEBUG LOG
     console.log(`[HISTORY] popLastMyCommand => cmdId=${popped?.cmdId}, strokeId=${popped?.strokeId}, type=${popped?.type}`);
     return popped;
 }
 
 /**
- * Loads a complete history of drawing commands (e.g., from the server)
- * and redraws the entire canvas based on this history.
- * @param {Array<Object>} commands - An array of drawing command objects.
+ * Loads a complete history of commands (e.g., from server) and redraws.
  */
 export function loadAndDrawHistory(commands) {
     const ctx = getContext();
@@ -94,12 +89,7 @@ export function loadAndDrawHistory(commands) {
 }
 
 /**
- * Removes specific drawing commands from the internal history arrays based on
- * command IDs or a stroke ID, but only if they belong to the specified ownerPlayerId.
- * After removal, it triggers a full canvas redraw.
- * @param {Array<string>} [idsToRemove=[]] - An array of command IDs to remove.
- * @param {string|null} [strokeIdToRemove=null] - A stroke ID; all commands with this ID will be removed.
- * @param {string|null} ownerPlayerId - The ID of the player whose commands should be removed. Crucial to prevent removing others' work.
+ * Removes specific commands from internal history by cmdIds or strokeId (if owner matches).
  */
 export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerPlayerId = null) {
     if (!ownerPlayerId) {
@@ -108,12 +98,13 @@ export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerP
     }
     let removedCount = 0;
 
-    // ★ DEBUG LOG
-    console.log(`[HISTORY] removeCommands stroke=${strokeIdToRemove}, cmdIds=${idsToRemove}, owner=${ownerPlayerId}`);
+    console.log(`[HISTORY] removeCommands stroke=${strokeIdToRemove}, cmdIds=[${idsToRemove}], owner=${ownerPlayerId}`);
 
     if (strokeIdToRemove) {
         _fullDrawHistory = _fullDrawHistory.filter(cmd => {
             if (cmd.strokeId === strokeIdToRemove && cmd.playerId === ownerPlayerId) {
+                // [DEBUG ADDED]
+                console.log(`[HISTORY] REMOVING (stroke match) cmdId=${cmd.cmdId}, strokeId=${cmd.strokeId}, type=${cmd.type}`);
                 removedCount++;
                 return false;
             }
@@ -124,6 +115,8 @@ export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerP
         const idSet = new Set(idsToRemove);
         _fullDrawHistory = _fullDrawHistory.filter(cmd => {
             if (idSet.has(cmd.cmdId) && cmd.playerId === ownerPlayerId) {
+                // [DEBUG ADDED]
+                console.log(`[HISTORY] REMOVING (cmdId match) cmdId=${cmd.cmdId}, strokeId=${cmd.strokeId}, type=${cmd.type}`);
                 removedCount++;
                 return false;
             }
@@ -134,15 +127,14 @@ export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerP
 
     if (removedCount > 0) {
         redrawCanvasFromHistory();
-        console.log(`[HISTORY] removeCommands => removed ${removedCount} commands, now redrawn.`);
+        console.log(`[HISTORY] removeCommands => removed ${removedCount} commands, now redrawn with _fullDrawHistory.size=${_fullDrawHistory.length}`);
     } else {
         console.log("[HISTORY] removeCommands => no matching commands found to remove.");
     }
 }
 
-
 /**
- * Clears the canvas and redraws all commands currently stored in `_fullDrawHistory`.
+ * Clears and redraws all commands from _fullDrawHistory onto the canvas.
  */
 export function redrawCanvasFromHistory() {
     const ctx = getContext();
@@ -155,56 +147,50 @@ export function redrawCanvasFromHistory() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     clearOverlay();
 
-    [..._fullDrawHistory].forEach(cmd => {
+    for (let cmd of _fullDrawHistory) {
         try {
+            // [DEBUG ADDED]
+            console.log(`[HISTORY] Replaying cmdId=${cmd.cmdId}, strokeId=${cmd.strokeId}, type=${cmd.type}`);
             executeCommand(cmd, ctx);
         } catch (err) {
             console.error("[HISTORY] Error redrawing command:", cmd, err);
         }
-    });
+    }
     ctx.restore();
     console.log("[HISTORY] ...done redraw.");
 }
 
-
 /**
- * Adds a command received from an external source (another player) to the history and draws it.
- * Skips the command if it originated from the local player.
- * @param {Object} data - The drawing command object received from the server.
+ * Adds a command from an external source to full history and draws it.
  */
 export function drawExternalCommand(data) {
     const myPlayerId = getPlayerId();
     const context = getContext();
-    // Skip if the command is from the local player (already drawn) or invalid
     if (!data || !data.cmdId || !data.playerId) {
         console.warn("Invalid external command received:", data);
         return;
     }
     if (data.playerId === myPlayerId) {
-        // console.log("Skipping own external command:", data.cmdId);
         return;
     }
 
-    // Handle 'clear' command from others by removing their history
+    // Handle 'clear' command from others
     if (data.type === 'clear') {
         console.log(`Received 'clear' command from player ${data.playerId}. Removing their history.`);
         const theirCmdIds = [];
-        _fullDrawHistory.forEach(cmd => { // Use internal history
+        _fullDrawHistory.forEach(cmd => {
             if (cmd.playerId === data.playerId) {
                 theirCmdIds.push(cmd.cmdId);
             }
         });
         if (theirCmdIds.length > 0) {
-            removeCommands(theirCmdIds, null, data.playerId); // Remove their commands
-            // Redraw is handled within removeCommands
+            removeCommands(theirCmdIds, null, data.playerId);
         }
-        return; // Don't add the 'clear' command itself to history
+        return;
     }
 
-    // Add the valid external command to the full history
-    addCommandToHistory(data); // Use the controlled add function
+    addCommandToHistory(data);
 
-    // Execute the command on the main canvas context
     try {
         executeCommand(data, context);
     } catch (error) {
@@ -212,10 +198,8 @@ export function drawExternalCommand(data) {
     }
 }
 
-
 /**
- * Clears the canvas of the current player's drawings and optionally emits event.
- * @param {boolean} [emitEvent=true] - Whether to emit a 'clear' event to the server.
+ * Clears the canvas of the current player's drawings, optionally emitting event.
  */
 export function clearCanvas(emitEvent = true) {
     const context = getContext();
@@ -225,27 +209,23 @@ export function clearCanvas(emitEvent = true) {
 
     if (!context || !canvas) return;
 
-    // Find all command IDs belonging to the current player
     const myCmdIds = [];
-    _fullDrawHistory.forEach(cmd => { // Use internal history
+    _fullDrawHistory.forEach(cmd => {
         if (cmd.playerId === myPlayerId) {
             myCmdIds.push(cmd.cmdId);
         }
     });
 
-    // If any commands were found, remove them locally and redraw
     if (myCmdIds.length > 0) {
-        removeCommands(myCmdIds, null, myPlayerId); // Remove by IDs, specify owner
-        console.log("Locally removed all my drawing commands."); // Message adjusted
-        // Redraw is handled within removeCommands
+        removeCommands(myCmdIds, null, myPlayerId);
+        console.log("Locally removed all my drawing commands.");
     } else {
         console.log("No local drawing commands to clear.");
     }
 
-    // Emit a 'clear' event to the server if requested and possible
     if (emitEvent && emitCallback && myPlayerId) {
         const cmdId = generateCommandId();
-        const command = { cmdId, type: 'clear', playerId: myPlayerId }; // Include playerId
+        const command = { cmdId, type: 'clear', playerId: myPlayerId };
         emitCallback(command);
         console.log("Emitted 'clear' command to server.");
     }
