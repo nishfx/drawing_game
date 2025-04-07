@@ -8,8 +8,12 @@ import { initOverlay } from './canvas/overlayManager.js';
 import { initEventHandlers } from './canvas/eventHandlers.js';
 import { loadAndDrawHistory as loadHistory, drawExternalCommand as drawExternal, clearHistory } from './canvas/historyManager.js';
 import { clearCanvas as clearHistoryAndEmit } from './canvas/historyManager.js';
-import { undoLastAction as undo } from './canvas/undoManager.js'; // Import the core undo function
+import { undoLastAction as undo } from './canvas/undoManager.js';
 import { getDrawingDataURL as getDataURL } from './canvas/dataExporter.js';
+
+// ***** ADD THIS IMPORT *****
+import { removeCommands as removeHistoryCommands } from './canvas/historyManager.js';
+// ****************************
 
 /**
  * Initializes the main canvas, overlay, and event listeners.
@@ -27,10 +31,10 @@ export function initCanvas(canvasId, drawEventEmitter, socket = null) {
         return false; // Overlay initialization failed
     }
     setEmitCallback(drawEventEmitter);
-    setSocketRef(socket); // Store socket reference (still useful for potential future needs)
+    setSocketRef(socket); // Store socket reference (potentially used by undo)
     initEventHandlers(); // Attach mouse/touch listeners
     disableDrawing(); // Start disabled
-    clearHistory(); // Reset history on init
+    clearHistory(); // Reset local history on init
     console.log(`CanvasManager Facade: Canvas "${canvasId}" initialized.`);
     return true;
 }
@@ -118,24 +122,19 @@ export function drawExternalCommand(data) {
  * Undoes the last drawing action performed by the local player.
  * @param {object} socket - The Socket.IO socket instance to emit the undo event.
  */
-export function undoLastAction(socket) { // <-- Accept socket argument again
+export function undoLastAction(socket) {
     // Pass the socket explicitly to the core undo function
     undo(socket);
 }
 
 /**
- * Removes specific drawing commands from history (e.g., received via undo from server).
- * Note: This is primarily for internal use or direct server commands,
- * use undoLastAction() for local user undo.
+ * Removes specific drawing commands from history (e.g., triggered by an undo from the server).
  * @param {Array<string>} [idsToRemove=[]] - Command IDs to remove.
  * @param {string|null} [strokeIdToRemove=null] - Stroke ID to remove.
  * @param {string|null} ownerPlayerId - The ID of the player whose commands should be removed.
  */
 export function removeCommands(idsToRemove = [], strokeIdToRemove = null, ownerPlayerId = null) {
-    // This function might need to be exposed if the server sends specific removal commands
-    // For now, it's mainly used internally by historyManager and undoManager
-    console.warn("CanvasManager Facade: removeCommands called directly. Ensure this is intended.");
-    // Direct access to historyManager's remove function might be needed if exposed
-    // import { removeCommands as removeHistoryCommands } from './canvas/historyManager.js';
-    // removeHistoryCommands(idsToRemove, strokeIdToRemove, ownerPlayerId);
+    // *** FIX: Actually remove from local history using the real function ***
+    removeHistoryCommands(idsToRemove, strokeIdToRemove, ownerPlayerId);
+    // The history manager handles redraw automatically.
 }
