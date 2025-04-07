@@ -6,7 +6,7 @@ import { generateCommandId } from './canvasUtils.js';
 
 let _myDrawHistory = [];
 let _fullDrawHistory = [];
-const MAX_HISTORY = 500; // Adjust as needed
+const MAX_HISTORY = 500000; // Adjust as needed
 
 // --- GETTERS (debug) ---
 export function getFullDrawHistory_DEBUG() {
