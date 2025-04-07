@@ -38,7 +38,7 @@ export async function interpretImage(base64ImageData) {
                     {
                         role: "user",
                         content: [
-                            { type: "text", text: "Beschreibe das Bild, indem du sagst, was darauf zu sehen ist, aber auf eine möglichst abwertende Art und Weise. Interpretiere das Bild präzise und gibt keine generische Beschreibung. Nutze maximal 20 Wörter." },
+                            { type: "text", text: "Interpretiere das Bild möglichst präzise. Nutze maximal 20 Wörter." },
                             {
                                 type: "image_url",
                                 image_url: {
