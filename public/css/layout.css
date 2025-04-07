@@ -6,8 +6,8 @@
     flex-direction: row;
     width: 100%;
     max-width: 1300px;
-    gap: 20px; /* Consistent gap */
-    align-items: stretch; /* Make columns equal height */
+    gap: 20px;            /* So there's a consistent 20px gap between columns */
+    align-items: stretch; /* Make columns the same height */
 }
 
 /* Wrapper for word display + game area */

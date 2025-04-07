@@ -159,20 +159,51 @@
     flex-direction: column;
     width: 300px;
     flex-shrink: 0;
-    /* This ensures it's the "right-most column" next to the canvas area */
-    margin-left: 20px; /* optional spacing from the canvas area */
+    /* Remove any margin-left; we rely on #main-layout's gap: 20px */
 }
+
 #settings-window {
     width: 100%;
-    height: 250px; /* EXACT size as old chat box */
+    height: 250px;            /* EXACT height for the Settings panel */
     border: 1px solid #ccc;
     background-color: #fff;
     border-radius: 5px;
     box-sizing: border-box;
     padding: 10px;
-    margin-bottom: 10px;
-    overflow: auto; /* Add scroll if content grows */
+    margin-bottom: 10px;      /* Spacing above the chat box */
+    flex-shrink: 0;           /* Prevent it from resizing */
+    overflow: auto;           /* Scroll inside if needed */
 }
+
+/* Chat area must fill the remaining vertical space below settings */
+#chat-area {
+    display: flex;            /* Container becomes flex so we can nest #messages with a scrollbar */
+    flex-direction: column;
+    flex-grow: 1;             /* Occupy the remaining vertical space */
+    border: 1px solid #dee2e6;
+    box-sizing: border-box;
+    background-color: #fff;
+    border-radius: 4px;
+    overflow: hidden;         /* Hide overflow so #messages scrolls, not the entire container */
+}
+
+/* Make #messages scroll instead of expanding in height */
+#messages {
+    list-style-type: none;
+    margin: 0;
+    padding: 8px 10px;
+    flex-grow: 1;             /* Use all remaining space inside #chat-area */
+    min-height: 0;            /* Ensure it can shrink properly */
+    overflow-y: auto;         /* Scrollbar appears when messages exceed the box */
+    background-color: #f8f9fa;
+    font-size: 0.9em;
+    border-bottom: 1px solid #dee2e6;
+}
+#messages li {
+    padding: 4px 0;
+    word-wrap: break-word;
+}
+
 #settings-form {
     display: flex;
     flex-direction: column;
