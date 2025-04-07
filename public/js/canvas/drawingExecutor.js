@@ -22,18 +22,22 @@ export function executeCommand(cmd, ctx) {
     // Save context state before applying command-specific settings
     ctx.save();
 
-    // Set composite operation based on tool (eraser uses destination-out)
-    // *** Correction: Eraser should use background color with source-over for simplicity ***
-    // ctx.globalCompositeOperation = (cmd.tool === 'eraser') ? 'destination-out' : 'source-over';
-    ctx.globalCompositeOperation = 'source-over';
+    // --- FIX: Set composite operation based on tool ---
+    if (cmd.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        // When using destination-out, the actual stroke color doesn't matter visually,
+        // but setting it helps avoid potential state issues if not restored properly.
+        // Using black is fine, or even the intended background color.
+        ctx.strokeStyle = '#000000'; // Or CANVAS_BACKGROUND_COLOR, doesn't visually matter here
+        ctx.fillStyle = '#000000';   // Same for fillStyle if eraser somehow used fill
+    } else {
+        // Default for pencil, shapes, fill, text
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = cmd.color || '#000000';
+        ctx.fillStyle = cmd.color || '#000000';
+    }
+    // --- End FIX ---
 
-
-    // Set styles and line width
-    // For eraser, strokeStyle/fillStyle aren't directly used by destination-out,
-    // but we set them anyway for consistency. The *shape* drawn matters.
-    // *** Correction: Eraser uses background color ***
-    ctx.strokeStyle = (cmd.tool === 'eraser') ? CANVAS_BACKGROUND_COLOR : (cmd.color || '#000000');
-    ctx.fillStyle = (cmd.tool === 'eraser') ? CANVAS_BACKGROUND_COLOR : (cmd.color || '#000000');
     ctx.lineWidth = (cmd.size != null) ? cmd.size : 5; // Default 5 if size missing
 
     // Execute command based on type
@@ -80,6 +84,12 @@ export function executeCommand(cmd, ctx) {
             break;
 
         case 'fill':
+            // Fill tool needs 'source-over' regardless of the current tool setting
+            // It operates on pixel data directly, not path stroking/filling.
+            // Ensure composite operation is correct before calling floodFill.
+            ctx.globalCompositeOperation = 'source-over'; // Override for fill
+            ctx.fillStyle = cmd.color || '#000000'; // Ensure fillStyle is set correctly
+
             if (cmd.x != null && cmd.y != null && cmd.color != null) {
                 // floodFill handles its own context manipulation internally
                 floodFill(ctx, Math.round(cmd.x), Math.round(cmd.y), cmd.color);
@@ -89,6 +99,10 @@ export function executeCommand(cmd, ctx) {
             break;
 
         case 'text':
+            // Text also needs 'source-over'
+            ctx.globalCompositeOperation = 'source-over'; // Override for text
+            ctx.fillStyle = cmd.color || '#000000'; // Ensure fillStyle is set correctly
+
             if (cmd.x != null && cmd.y != null && cmd.text != null && cmd.color != null) {
                 const fontSize = Math.max(5, (cmd.size || 5) * 4); // Scale line width to font size
                 ctx.font = `${fontSize}px sans-serif`;

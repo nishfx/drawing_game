@@ -117,13 +117,18 @@ function handleMouseDown(e) {
             currentStrokeId = generateStrokeId();
             console.log(`[MOUSEDOWN] Created strokeId=${currentStrokeId} for pencil/eraser`);
 
+            // --- FIX: Apply correct composite operation immediately ---
+            ctx.globalCompositeOperation = (tool === 'eraser') ? 'destination-out' : 'source-over';
+            // --- End FIX ---
+
             // Draw a tiny dot immediately
             ctx.lineWidth = lw;
-            ctx.strokeStyle = (tool === 'eraser') ? CANVAS_BACKGROUND_COLOR : col;
-            ctx.globalCompositeOperation = 'source-over';
+            // --- FIX: Eraser color doesn't matter for destination-out, but set consistently ---
+            ctx.strokeStyle = (tool === 'eraser') ? '#000000' : col; // Use black for eraser shape
+            // --- End FIX ---
             ctx.beginPath();
             ctx.moveTo(x, y);
-            ctx.lineTo(x + 0.01, y + 0.01);
+            ctx.lineTo(x + 0.01, y + 0.01); // Tiny segment to ensure dot appears
             ctx.stroke();
             // Emit that single dot
             emitDrawSegment(x, y, x + 0.01, y + 0.01);
@@ -214,6 +219,9 @@ function handleMouseMove(e) {
         case 'pencil':
         case 'eraser':
             console.log(`[MOUSEMOVE] pencil/eraser from (${lastX},${lastY}) to (${x},${y}), strokeId=${currentStrokeId}`);
+            // --- FIX: Ensure composite operation is set correctly for the stroke ---
+            ctx.globalCompositeOperation = (tool === 'eraser') ? 'destination-out' : 'source-over';
+            // --- End FIX ---
             ctx.lineTo(x, y);
             ctx.stroke();
             // All segments in this drag share currentStrokeId
@@ -283,6 +291,9 @@ function finishStroke(finalX, finalY) {
     if (tool === 'pencil' || tool === 'eraser') {
         // The entire drag's lines are already emitted with currentStrokeId
         ctx.beginPath(); // break the path
+        // --- FIX: Reset composite operation after stroke ---
+        ctx.globalCompositeOperation = 'source-over';
+        // --- End FIX ---
     }
     else if (tool === 'rectangle' || tool === 'ellipse') {
         // Save a single shape command
@@ -373,7 +384,9 @@ function emitDrawSegment(x0, y0, x1, y1, forcedStrokeId = null) {
         type: 'line',
         x0, y0, x1, y1,
         tool: currentTool,
-        color: (currentTool === 'eraser') ? CANVAS_BACKGROUND_COLOR : getCurrentColor(),
+        // --- FIX: Eraser command doesn't need color, but send consistent data ---
+        color: (currentTool === 'eraser') ? '#000000' : getCurrentColor(), // Send black for eraser
+        // --- End FIX ---
         size: getCurrentLineWidth()
     };
 
