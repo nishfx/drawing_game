@@ -2,15 +2,17 @@
 
 /* Chat area container */
 #chat-area {
-    display: flex;           /* So we can flex the messages area vs. the input */
+    display: flex;
     flex-direction: column;
     width: 300px;
-    height: 250px;           /* <--- Fixed chat height */
+    /* REMOVE or comment out the fixed 250px height! */
+    /* height: 250px; */  /* <- removed so chat can expand in the free space */
+
     border: 1px solid #dee2e6;
     box-sizing: border-box;
     background-color: #fff;
     border-radius: 4px;
-    flex-shrink: 0;
+    flex-shrink: 1; /* allow shrink/grow */
     /* no overflow here; we let #messages handle that */
 }
 
@@ -18,23 +20,71 @@
     list-style-type: none;
     padding: 8px 10px;
     margin: 0;
-    flex-grow: 1;            /* Fill remaining vertical space */
-    min-height: 0;           /* So flex can shrink properly */
-    overflow-y: auto;        /* <--- Scrollbar if messages overflow */
+    flex-grow: 1;            /* fill up vertical space */
+    min-height: 0;           /* for proper flex shrink */
+    overflow-y: auto;        /* scrollbar if needed */
     background-color: #f8f9fa;
     font-size: 0.9em;
     border-bottom: 1px solid #dee2e6;
 }
-#messages li { padding: 4px 0; word-wrap: break-word; }
-#messages li[style*="italic"] { color: #6c757d; } /* System messages */
-#messages li.correct-guess { font-weight: bold; color: #155724; background-color: #d4edda; padding: 5px 8px; border-radius: 3px; margin: 2px 0; border-left: 3px solid #28a745; }
+#messages li {
+    padding: 4px 0;
+    word-wrap: break-word;
+}
+#messages li[style*="italic"] {
+    color: #6c757d;
+}
+#messages li.correct-guess {
+    font-weight: bold;
+    color: #155724;
+    background-color: #d4edda;
+    padding: 5px 8px;
+    border-radius: 3px;
+    margin: 2px 0;
+    border-left: 3px solid #28a745;
+}
 
 /* Chat input form */
-#chat-form { display: flex; flex-shrink: 0; border-top: 1px solid #dee2e6; position: relative; }
-#chat-input { flex-grow: 1; border: none; padding: 10px; font-size: 0.9em; min-width: 0; border-bottom-left-radius: 4px; }
-#chat-input:focus { outline: none; box-shadow: inset 0 0 3px rgba(0, 123, 255, 0.5); }
-#chat-form button { flex-shrink: 0; background: #007bff; border: none; padding: 10px 15px; color: white; cursor: pointer; font-size: 0.9em; transition: background-color 0.2s ease; }
-#chat-form button#send-btn { border-bottom-right-radius: 4px; }
-#chat-form button#emoji-btn { background: #6c757d; padding: 10px; font-size: 1.1em; line-height: 1; }
-#chat-form button:hover { background: #0056b3; }
-#chat-form button#emoji-btn:hover { background: #5a6268; }
+#chat-form {
+    display: flex;
+    flex-shrink: 0;
+    border-top: 1px solid #dee2e6;
+    position: relative;
+}
+#chat-input {
+    flex-grow: 1;
+    border: none;
+    padding: 10px;
+    font-size: 0.9em;
+    min-width: 0;
+    border-bottom-left-radius: 4px;
+}
+#chat-input:focus {
+    outline: none;
+    box-shadow: inset 0 0 3px rgba(0, 123, 255, 0.5);
+}
+#chat-form button {
+    flex-shrink: 0;
+    background: #007bff;
+    border: none;
+    padding: 10px 15px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s ease;
+}
+#chat-form button#send-btn {
+    border-bottom-right-radius: 4px;
+}
+#chat-form button#emoji-btn {
+    background: #6c757d;
+    padding: 10px;
+    font-size: 1.1em;
+    line-height: 1;
+}
+#chat-form button:hover {
+    background: #0056b3;
+}
+#chat-form button#emoji-btn:hover {
+    background: #5a6268;
+}

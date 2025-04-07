@@ -1,16 +1,16 @@
-// public/js/lobbyClient.js
+/* public/js/lobbyClient.js */
 import * as CanvasManager from './canvasManager.js';
 import * as PlayerListUI from './ui/playerListUI.js';
 import * as ChatUI from './ui/chatUI.js';
 
 console.log("Lobby Client script loaded.");
 
-let socket = null; // Keep socket reference here
+let socket = null;
 let myPlayerId = null;
 let currentLobbyId = null;
 let isHost = false;
 let hasJoined = false;
-let minPlayersToStart = 2; // Default
+let minPlayersToStart = 2; // default
 const MAX_PLAYERS = 4;
 
 // DOM elements
@@ -30,12 +30,23 @@ const lineWidthSelector = document.getElementById('line-width-selector');
 const statusDisplay = document.getElementById('status');
 const lobbyTitleDisplay = document.getElementById('lobby-title-display');
 const undoBtn = document.getElementById('undo-btn');
-// --- NEW AI Elements ---
+
+// AI Elements
 const askAiBtn = document.getElementById('ask-ai-btn');
 const aiInterpretationBox = document.getElementById('ai-interpretation-box');
-// --- End NEW AI Elements ---
 
-// ---------------------------------
+// NEW: Settings Window Elements
+const settingsWindow = document.getElementById('settings-window');
+const settingsForm = document.getElementById('settings-form');
+const roundTimeInput = document.getElementById('round-time-input');
+const voteTimeInput = document.getElementById('vote-time-input');
+const saveSettingsBtn = document.getElementById('save-settings-btn');
+
+/** Our local in-memory game settings. You'd typically sync these with the server. */
+let currentSettings = {
+    roundTime: 120,
+    voteTime: 60
+};
 
 function initializeLobby() {
     console.log("Initializing Lobby UI...");
@@ -51,7 +62,6 @@ function initializeLobby() {
     }
 
     console.log(`Lobby ID: ${currentLobbyId}, Username: ${username}`);
-    // Initialize canvas WITHOUT socket initially, it will be re-init on connect
     if (!CanvasManager.initCanvas('lobby-canvas', handleDrawEvent, null)) {
         handleFatalError("Failed to initialize lobby canvas.");
         return;
@@ -62,10 +72,12 @@ function initializeLobby() {
     CanvasManager.setLineWidth(lineWidthSelector?.value || 5);
     CanvasManager.setTool('pencil');
 
-    setupSocketConnection(currentLobbyId, username); // Socket is initialized here
+    setupSocketConnection(currentLobbyId, username);
     setupActionListeners();
     populateEmojiPicker();
-    // Initially disable AI button until host status is confirmed
+
+    // For now, disable the settings form by default. We'll enable it if we detect host.
+    disableSettingsForm(true);
     if (askAiBtn) askAiBtn.disabled = true;
 }
 
@@ -74,7 +86,7 @@ function setupSocketConnection(lobbyId, username) {
 
     const socketPath = '/game/socket.io';
     console.log(`Connecting socket at ${socketPath}`);
-    socket = io({ path: socketPath }); // Initialize socket
+    socket = io({ path: socketPath });
 
     socket.on('connect', () => {
         console.log('Connected to server!', socket.id);
@@ -84,14 +96,15 @@ function setupSocketConnection(lobbyId, username) {
             statusDisplay.textContent = 'Connected';
             statusDisplay.style.color = 'green';
         }
-        // Re-initialize canvasManager with the now connected socket
         CanvasManager.initCanvas('lobby-canvas', handleDrawEvent, socket);
+
         if (!hasJoined) {
             console.log(`Emitting join lobby for ${lobbyId} as ${username}`);
             socket.emit('join lobby', { lobbyId, username });
         } else {
+            // Rejoin scenario
             console.log("Reconnected, rejoining lobby state.");
-            socket.emit('join lobby', { lobbyId, username }); // Re-emit join on reconnect
+            socket.emit('join lobby', { lobbyId, username });
         }
     });
 
@@ -105,7 +118,9 @@ function setupSocketConnection(lobbyId, username) {
         if (startGameBtn) startGameBtn.style.display = 'none';
         if (playerCountDisplay) playerCountDisplay.textContent = '(0/?)';
         if (lobbyTitleDisplay) lobbyTitleDisplay.textContent = "Lobby";
-        if (askAiBtn) askAiBtn.disabled = true; // Disable AI button on disconnect
+        if (askAiBtn) askAiBtn.disabled = true;
+        disableSettingsForm(true);
+
         CanvasManager.disableDrawing();
         hasJoined = false;
         myPlayerId = null;
@@ -120,7 +135,8 @@ function setupSocketConnection(lobbyId, username) {
             statusDisplay.style.color = 'red';
         }
         if (lobbyStatus) lobbyStatus.textContent = "Connection failed.";
-        if (askAiBtn) askAiBtn.disabled = true; // Disable AI button on error
+        if (askAiBtn) askAiBtn.disabled = true;
+        disableSettingsForm(true);
         alert("Failed to connect. Please refresh.");
     });
 
@@ -146,14 +162,17 @@ function setupSocketConnection(lobbyId, username) {
         CanvasManager.setPlayerId(myPlayerId);
         hasJoined = true;
         minPlayersToStart = state.minPlayers || 2;
+
         PlayerListUI.updatePlayerList(state.players, myPlayerId);
         ChatUI.clearChat();
         state.chatHistory?.forEach(msg => ChatUI.addChatMessage(msg));
 
         CanvasManager.loadAndDrawHistory(state.canvasCommands || []);
 
+        // Determine if I'm host
         isHost = (state.hostId === myPlayerId);
-        updateLobbyUI(state); // This will enable/disable AI button based on host status
+
+        updateLobbyUI(state);
         CanvasManager.enableDrawing();
     });
 
@@ -162,7 +181,7 @@ function setupSocketConnection(lobbyId, username) {
         PlayerListUI.updatePlayerList(players, myPlayerId);
         const me = players.find(p => p.id === myPlayerId);
         isHost = me ? me.isHost : false;
-        updateLobbyUI({ players }); // This will enable/disable AI button based on host status
+        updateLobbyUI({ players });
     });
 
     socket.on('lobby chat message', msgData => {
@@ -171,13 +190,10 @@ function setupSocketConnection(lobbyId, username) {
 
     socket.on('lobby commands removed', ({ cmdIds, strokeId, playerId }) => {
         console.log(`Received removal: cmdIds=${cmdIds}, strokeId=${strokeId}, player=${playerId}`);
-        // Process removal ONLY if it's NOT from the local player
         if (playerId !== myPlayerId) {
-             console.log(`Processing removal command from server for player ${playerId}`);
-             // Use the facade's removeCommands, accepting the console warning.
-             CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId);
+            CanvasManager.removeCommands(cmdIds || [], strokeId || null, playerId);
         } else {
-            console.log(`Ignoring own removal command from server for player ${playerId}`);
+            console.log("Ignoring our own removal command from server.");
         }
     });
 
@@ -190,13 +206,14 @@ function setupSocketConnection(lobbyId, username) {
         isHost = true;
         ChatUI.addChatMessage({ text: "You are now the host.", type: 'system' });
         if (startGameBtn) startGameBtn.style.display = 'block';
-        updateLobbyUI({}); // Update UI, including AI button state
+        updateLobbyUI({});
     });
 
     socket.on('game starting', ({ lobbyId: confirmedLobbyId }) => {
         console.log(`Game starting for ${confirmedLobbyId}!`);
         if (startGameBtn) startGameBtn.disabled = true;
-        if (askAiBtn) askAiBtn.disabled = true; // Disable AI button when game starts
+        if (askAiBtn) askAiBtn.disabled = true;
+        disableSettingsForm(true);
         CanvasManager.disableDrawing();
         ChatUI.addChatMessage({ text: "Game is starting...", type: 'system' });
         setTimeout(() => {
@@ -208,21 +225,20 @@ function setupSocketConnection(lobbyId, username) {
         ChatUI.addChatMessage({ text: message, type: 'system' });
     });
 
-    // --- NEW: AI Interpretation Result Listener ---
+    // AI Interpretation
     socket.on('ai interpretation result', ({ interpretation, error }) => {
-        if (askAiBtn) askAiBtn.disabled = !isHost; // Re-enable if host
+        if (askAiBtn) askAiBtn.disabled = !isHost;
         if (aiInterpretationBox) {
             if (error) {
                 aiInterpretationBox.value = `Error: ${error}`;
                 aiInterpretationBox.style.color = 'red';
             } else {
-                aiInterpretationBox.value = interpretation || "AI couldn't provide an interpretation.";
-                aiInterpretationBox.style.color = '#495057'; // Reset color
+                aiInterpretationBox.value = interpretation || "AI couldn't interpret.";
+                aiInterpretationBox.style.color = '#495057';
             }
-            aiInterpretationBox.placeholder = "AI interpretation will appear here..."; // Reset placeholder
+            aiInterpretationBox.placeholder = "AI interpretation will appear here...";
         }
     });
-    // --- End NEW ---
 }
 
 function handleDrawEvent(drawDetail) {
@@ -230,8 +246,6 @@ function handleDrawEvent(drawDetail) {
         socket.emit('lobby draw', drawDetail);
     }
 }
-
-// --------------
 
 function setupActionListeners() {
     if (chatForm) {
@@ -271,7 +285,6 @@ function setupActionListeners() {
         }
     });
 
-    // Listen for tool selection
     if (drawingToolsContainer) {
         drawingToolsContainer.addEventListener('click', e => {
             const button = e.target.closest('.tool-button');
@@ -280,17 +293,13 @@ function setupActionListeners() {
                 button.classList.add('active');
                 const selectedTool = button.dataset.tool;
                 CanvasManager.setTool(selectedTool);
-                console.log(`Tool set to: ${selectedTool}`);
             } else if (button && button.id === 'undo-btn') {
-                console.log("Undo clicked");
-                // Pass the current socket instance when calling undo
                 if (socket) {
-                    CanvasManager.undoLastAction(socket); // <-- Pass socket here
+                    CanvasManager.undoLastAction(socket);
                 } else {
                     console.error("Cannot undo: Socket not available.");
                 }
             } else if (button && button.id === 'clear-canvas-btn') {
-                console.log("Clear Canvas clicked");
                 CanvasManager.clearCanvas(true);
             }
         });
@@ -299,18 +308,15 @@ function setupActionListeners() {
             colorPicker.addEventListener('input', e => {
                 CanvasManager.setColor(e.target.value);
             });
-            CanvasManager.setColor(colorPicker.value);
         }
-
         if (lineWidthSelector) {
             lineWidthSelector.addEventListener('change', e => {
                 CanvasManager.setLineWidth(e.target.value);
             });
-            CanvasManager.setLineWidth(lineWidthSelector.value);
         }
     }
 
-    // --- NEW: AI Button Listener ---
+    // AI Button
     if (askAiBtn) {
         askAiBtn.addEventListener('click', () => {
             if (!isHost) {
@@ -325,36 +331,50 @@ function setupActionListeners() {
 
             const imageDataUrl = CanvasManager.getDrawingDataURL();
             if (!imageDataUrl) {
-                console.error("Could not get canvas data for AI.");
                 if (aiInterpretationBox) aiInterpretationBox.value = "Error: Could not capture drawing.";
                 return;
             }
-
-            // Basic size check (OpenAI has limits, ~20MB, but also cost implications)
-            // Let's set a practical limit like 2MB base64 string length
             if (imageDataUrl.length > 2 * 1024 * 1024) {
-                 console.error("Drawing image data too large for AI request:", imageDataUrl.length);
-                 if (aiInterpretationBox) aiInterpretationBox.value = "Error: Drawing is too large.";
-                 return;
+                if (aiInterpretationBox) aiInterpretationBox.value = "Error: Drawing is too large.";
+                return;
             }
-
 
             console.log("Requesting AI interpretation...");
             if (aiInterpretationBox) {
-                aiInterpretationBox.placeholder = "AI is thinking..."; // Show loading state
-                aiInterpretationBox.value = ""; // Clear previous value
-                aiInterpretationBox.style.color = '#6c757d'; // Reset color
+                aiInterpretationBox.placeholder = "AI is thinking...";
+                aiInterpretationBox.value = "";
+                aiInterpretationBox.style.color = '#6c757d';
             }
-            askAiBtn.disabled = true; // Disable button while waiting
-
+            askAiBtn.disabled = true;
             socket.emit('request ai interpretation', imageDataUrl);
         });
     }
-    // --- End NEW ---
+
+    // NEW: Settings Form
+    if (saveSettingsBtn) {
+        saveSettingsBtn.addEventListener('click', () => {
+            if (!isHost) {
+                console.log("Ignoring settings save from non-host.");
+                return;
+            }
+            // Grab form values
+            const roundVal = parseInt(roundTimeInput.value, 10) || 120;
+            const voteVal = parseInt(voteTimeInput.value, 10) || 60;
+
+            // Typically you'd send them to the server here
+            currentSettings.roundTime = roundVal;
+            currentSettings.voteTime = voteVal;
+            console.log("Settings updated locally:", currentSettings);
+
+            // In a real app, you'd do: socket.emit('update-settings', currentSettings);
+            // Then wait for server confirmation and re-broadcast.
+
+            alert("Settings saved (client-only example).");
+        });
+    }
 }
 
-// --------------
-
+// Called in multiple places to keep UI consistent
 function updateLobbyUI(state) {
     const players = state.players || PlayerListUI.getPlayersFromList();
     const playerCount = players.length;
@@ -395,16 +415,34 @@ function updateLobbyUI(state) {
         }
     }
 
-    // --- NEW: Enable/Disable AI Button ---
     if (askAiBtn) {
-        askAiBtn.disabled = !isHost; // Only enable if the current player is the host
+        askAiBtn.disabled = !isHost;
     }
-    // --- End NEW ---
+
+    // Enable or disable settings form
+    disableSettingsForm(!isHost);
+}
+
+// If “true,” disable the entire settings form
+function disableSettingsForm(disabled) {
+    if (!settingsForm) return;
+    Array.from(settingsForm.elements).forEach(el => {
+        if (el.id !== 'save-settings-btn') {
+            el.disabled = disabled;
+        }
+    });
+    // Optionally hide the Save button if not host
+    if (saveSettingsBtn) {
+        saveSettingsBtn.style.display = disabled ? 'none' : 'inline-block';
+    }
 }
 
 function populateEmojiPicker() {
     if (!emojiPicker) return;
-    const emojis = ['😊','😂','😍','🤔','😢','😠','👍','👎','❤️','🎉','✨','🔥','💡','❓','❗','👋','👀','✅','❌','💯'];
+    const emojis = [
+        '😊','😂','😍','🤔','😢','😠','👍','👎','❤️','🎉','✨','🔥',
+        '💡','❓','❗','👋','👀','✅','❌','💯'
+    ];
     emojiPicker.innerHTML = '';
     emojis.forEach(emoji => {
         const span = document.createElement('span');
@@ -427,7 +465,7 @@ function handleFatalError(message) {
 }
 
 // --------------
-
+// Initialize on load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeLobby);
 } else {

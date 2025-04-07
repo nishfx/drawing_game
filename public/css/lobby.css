@@ -2,66 +2,105 @@
 
 /* --- Styles for Lobby Screen (lobby.html - served at /game/lobby) --- */
 #lobby-canvas-area {
-    flex-grow: 1; display: flex; flex-direction: column; align-items: stretch;
-    background-color: #f8f9fa; border-radius: 4px;
-    border: 1px solid #dee2e6; margin: 0;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    margin: 0;
     min-width: 0;
     position: relative; /* Ensure this is the positioning context for overlay */
 }
 #lobby-canvas {
-    border: 1px solid #ccc; /* Keep border if desired */
+    border: 1px solid #ccc;
     background-color: #fff;
     touch-action: none;
     max-width: 100%;
     display: block;
-    box-sizing: border-box; /* Include border in size */
-    width: 100%; /* Take full width of parent */
-    aspect-ratio: 600 / 450; /* width / height */
-    margin: 0; /* Explicitly remove margin */
-    padding: 0; /* Explicitly remove padding */
+    box-sizing: border-box;
+    width: 100%;
+    aspect-ratio: 600 / 450;
+    margin: 0;
+    padding: 0;
 }
 #lobby-drawing-tools {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    padding: 10px; /* Add padding here if needed around tools */
+    padding: 10px;
     background-color: #e9ecef;
     border: 1px solid #ccc;
     border-radius: 4px;
-    margin-top: 10px; /* Add margin to space from canvas */
+    margin-top: 10px;
     flex-shrink: 0;
     align-items: center;
 }
-.tool-button { padding: 0; width: 40px; height: 40px; font-size: 1.5em; border: 1px solid #adb5bd; background-color: #fff; border-radius: 4px; cursor: pointer; transition: background-color 0.2s ease, border-color 0.2s ease; line-height: 40px; text-align: center; display: inline-flex; align-items: center; justify-content: center; }
-.tool-button:hover { background-color: #f1f3f5; }
-.tool-button.active { background-color: #007bff; color: white; border-color: #0056b3; }
-#lobby-drawing-tools input[type="color"] { height: 40px; width: 45px; padding: 2px; border: 1px solid #adb5bd; border-radius: 4px; cursor: pointer; vertical-align: middle; background-color: #fff; }
-#lobby-drawing-tools select { padding: 7px 10px; font-size: 0.9em; border: 1px solid #adb5bd; border-radius: 4px; height: 40px; vertical-align: middle; background-color: #fff; }
-
-/* --- NEW: AI Feature Area Styles --- */
-#ai-feature-area {
-    display: flex;
-    align-items: center; /* Vertically align button and text box */
-    gap: 10px; /* Space between button and text box */
-    padding: 10px; /* Padding around the AI elements */
-    margin-top: 5px; /* Space below drawing tools */
-    /* Ensure it aligns horizontally with the drawing tools */
-    /* The parent #lobby-canvas-area handles overall width */
+.tool-button {
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    font-size: 1.5em;
+    border: 1px solid #adb5bd;
+    background-color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    line-height: 40px;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.tool-button:hover {
+    background-color: #f1f3f5;
+}
+.tool-button.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #0056b3;
+}
+#lobby-drawing-tools input[type="color"] {
+    height: 40px;
+    width: 45px;
+    padding: 2px;
+    border: 1px solid #adb5bd;
+    border-radius: 4px;
+    cursor: pointer;
+    vertical-align: middle;
+    background-color: #fff;
+}
+#lobby-drawing-tools select {
+    padding: 7px 10px;
+    font-size: 0.9em;
+    border: 1px solid #adb5bd;
+    border-radius: 4px;
+    height: 40px;
+    vertical-align: middle;
+    background-color: #fff;
 }
 
+/* AI Feature Area */
+#ai-feature-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    margin-top: 5px;
+}
 #ask-ai-btn {
     padding: 8px 15px;
     font-size: 0.9em;
-    background-color: #6c757d; /* Secondary button color */
+    background-color: #6c757d;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s ease;
-    flex-shrink: 0; /* Prevent button from shrinking */
-    /* Make button height align better with textarea */
-    height: calc(1.5em * 2 + 16px + 2px); /* Approx height for 2 rows + padding + border */
-    align-self: flex-start; /* Align button to the top of the flex container */
+    flex-shrink: 0;
+    height: calc(1.5em * 2 + 16px + 2px);
+    align-self: flex-start;
 }
 #ask-ai-btn:hover {
     background-color: #5a6268;
@@ -70,40 +109,92 @@
     background-color: #adb5bd;
     cursor: not-allowed;
 }
-
-/* Updated styles for textarea */
 #ai-interpretation-box {
-    flex-grow: 1; /* Take remaining horizontal space */
-    padding: 8px 10px; /* Adjusted padding */
+    flex-grow: 1;
+    padding: 8px 10px;
     font-size: 0.9em;
-    font-family: inherit; /* Inherit font from body */
+    font-family: inherit;
     border: 1px solid #ced4da;
     border-radius: 4px;
-    background-color: #e9ecef; /* Read-only background */
+    background-color: #e9ecef;
     color: #495057;
-    min-width: 0; /* Allow shrinking */
+    min-width: 0;
     box-sizing: border-box;
-    /* Remove fixed height, let rows attribute control it */
-    /* height: 36px; */
-    line-height: 1.5; /* Standard line height */
-    resize: none; /* Disable manual resizing by user */
-    overflow-y: auto; /* Add scrollbar if content exceeds 2 lines */
+    line-height: 1.5;
+    resize: none;
+    overflow-y: auto;
 }
 #ai-interpretation-box::placeholder {
     color: #6c757d;
     font-style: italic;
 }
-/* --- End AI Feature Area Styles --- */
-
 
 /* Start Game Button Container */
 #lobby-controls {
     width: 100%;
     max-width: 1300px;
     text-align: center;
-    padding: 0; /* Remove padding */
-    margin-top: 10px; /* Control space above button */
+    margin-top: 10px;
 }
-#lobby-controls button#start-game-btn { padding: 12px 25px; font-size: 1.2em; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 4px; }
-#lobby-controls button#start-game-btn:hover { background-color: #218838; }
-#lobby-controls button#start-game-btn:disabled { background-color: #aaa; cursor: not-allowed; }
+#lobby-controls button#start-game-btn {
+    padding: 12px 25px;
+    font-size: 1.2em;
+    cursor: pointer;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+#lobby-controls button#start-game-btn:hover {
+    background-color: #218838;
+}
+#lobby-controls button#start-game-btn:disabled {
+    background-color: #aaa;
+    cursor: not-allowed;
+}
+
+/* NEW: Right Column for Settings + Chat */
+#right-col {
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+    flex-shrink: 0;
+    /* This ensures it's the "right-most column" next to the canvas area */
+    margin-left: 20px; /* optional spacing from the canvas area */
+}
+#settings-window {
+    width: 100%;
+    height: 250px; /* EXACT size as old chat box */
+    border: 1px solid #ccc;
+    background-color: #fff;
+    border-radius: 5px;
+    box-sizing: border-box;
+    padding: 10px;
+    margin-bottom: 10px;
+    overflow: auto; /* Add scroll if content grows */
+}
+#settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 5px;
+}
+#settings-form label {
+    font-size: 0.9em;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+#save-settings-btn {
+    align-self: flex-start;
+    padding: 8px 16px;
+    border: none;
+    background-color: #007bff;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+}
+#save-settings-btn:hover {
+    background-color: #0056b3;
+}

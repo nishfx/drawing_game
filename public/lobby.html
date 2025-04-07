@@ -29,21 +29,21 @@
             <ul id="player-list"></ul>
         </div>
 
-        <!-- Canvas Area and Tools -->
+        <!-- Canvas Area (same as before) -->
         <div id="lobby-canvas-area" style="position: relative;">
             <canvas id="lobby-canvas" width="600" height="450"></canvas>
             <!-- Overlay canvas is inserted here by JS -->
 
             <div id="lobby-drawing-tools">
-                <!-- Existing tool buttons -->
+                <!-- Tool buttons -->
                 <button class="tool-button active" data-tool="pencil" title="Pencil">✏️</button>
                 <button class="tool-button" data-tool="eraser" title="Eraser">🧼</button>
                 <button class="tool-button" data-tool="fill" title="Fill">💧</button>
-                <button class="tool-button" data-tool="rectangle" title="Rectangle Tool">□</button>
-                <button class="tool-button" data-tool="ellipse" title="Ellipse Tool">○</button>
-                <button class="tool-button" data-tool="text" title="Text Tool">T</button>
+                <button class="tool-button" data-tool="rectangle" title="Rectangle">□</button>
+                <button class="tool-button" data-tool="ellipse" title="Ellipse">○</button>
+                <button class="tool-button" data-tool="text" title="Text">T</button>
 
-                <!-- Color Picker, Line Width, etc. -->
+                <!-- Color Picker & Line Width -->
                 <input type="color" id="color-picker" value="#000000" title="Color Picker">
                 <select id="line-width-selector" title="Line Width">
                     <option value="2">2px</option>
@@ -53,7 +53,7 @@
                     <option value="25">25px</option>
                 </select>
 
-                <!-- Action Buttons -->
+                <!-- Undo / Clear -->
                 <button class="tool-button" id="undo-btn" title="Undo Last Action">↩️</button>
                 <button class="tool-button" id="clear-canvas-btn" title="Clear Entire Canvas">🗑️</button>
             </div>
@@ -61,22 +61,38 @@
             <!-- AI Feature Area -->
             <div id="ai-feature-area">
                 <button id="ask-ai-btn" title="Ask AI to interpret the drawing (Host only)">Ask AI</button>
-                <!-- Changed input to textarea and added rows="2" -->
                 <textarea id="ai-interpretation-box" rows="2" readonly placeholder="AI interpretation will appear here..."></textarea>
             </div>
-            <!-- End AI Feature Area -->
-
         </div>
 
-        <!-- Chat Area -->
-        <div id="chat-area">
-            <ul id="messages"></ul>
-            <form id="chat-form" action="">
-                <input id="chat-input" autocomplete="off" placeholder="Lobby chat..." />
-                <button type="button" id="emoji-btn" title="Emoji">😊</button>
-                <button type="submit" id="send-btn">Send</button>
-                <div id="emoji-picker"></div>
-            </form>
+        <!-- NEW Right Column: Settings Window (top) + Chat (below) -->
+        <div id="right-col">
+            <!-- The new Settings Window (300×250) -->
+            <div id="settings-window">
+                <h3>Game Settings</h3>
+                <form id="settings-form">
+                    <label>Round Time (s):
+                        <input id="round-time-input" type="number" min="10" max="300" value="120" />
+                    </label>
+                    <br><br>
+                    <label>Vote Time (s):
+                        <input id="vote-time-input" type="number" min="10" max="180" value="60" />
+                    </label>
+                    <br><br>
+                    <button id="save-settings-btn" type="button">Save</button>
+                </form>
+            </div>
+
+            <!-- Chat Area (now flex-grows below) -->
+            <div id="chat-area">
+                <ul id="messages"></ul>
+                <form id="chat-form" action="">
+                    <input id="chat-input" autocomplete="off" placeholder="Lobby chat..." />
+                    <button type="button" id="emoji-btn" title="Emoji">😊</button>
+                    <button type="submit" id="send-btn">Send</button>
+                    <div id="emoji-picker"></div>
+                </form>
+            </div>
         </div>
     </div>
 
