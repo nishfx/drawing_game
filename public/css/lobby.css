@@ -2,16 +2,15 @@
 
 /* --- Styles for Lobby Screen (lobby.html - served at /game/lobby) --- */
 #lobby-canvas-area {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-    margin: 0;
-    min-width: 0;
-    position: relative; /* Ensure this is the positioning context for overlay */
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;      /* Fill available space equally with #right-col */
+  min-height: 0;     /* Allow children to shrink/scroll instead of pushing down */
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+  margin: 0;
+  position: relative;
 }
 #lobby-canvas {
     border: 1px solid #ccc;
@@ -153,38 +152,43 @@
     cursor: not-allowed;
 }
 
-/* NEW: Right Column for Settings + Chat */
+/* The new right column */
 #right-col {
-    display: flex;
-    flex-direction: column;
-    width: 300px;
-    flex-shrink: 0;
-    /* Remove any margin-left; we rely on #main-layout's gap: 20px */
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;      /* Same "weight" so it matches #lobby-canvas-area in height */
+  min-height: 0;     /* Let the chat area scroll if content is too big */
+  width: 300px;      /* You can keep a fixed width if you want, or remove if you prefer equal widths */
+  flex-shrink: 0;    /* If you truly want it locked at 300px, keep this; otherwise remove */
 }
 
 #settings-window {
-    width: 100%;
-    height: 250px;            /* EXACT height for the Settings panel */
-    border: 1px solid #ccc;
-    background-color: #fff;
-    border-radius: 5px;
-    box-sizing: border-box;
-    padding: 10px;
-    margin-bottom: 10px;      /* Spacing above the chat box */
-    flex-shrink: 0;           /* Prevent it from resizing */
-    overflow: auto;           /* Scroll inside if needed */
+  width: 100%;
+  height: 250px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  border-radius: 5px;
+  box-sizing: border-box;
+  padding: 10px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+  overflow: auto;
 }
 
-/* Chat area must fill the remaining vertical space below settings */
+/* Chat area:
+   - occupies the leftover column space below #settings-window
+   - children (#messages, #chat-form) handle their own scrolling
+*/
 #chat-area {
-    display: flex;            /* Container becomes flex so we can nest #messages with a scrollbar */
-    flex-direction: column;
-    flex-grow: 1;             /* Occupy the remaining vertical space */
-    border: 1px solid #dee2e6;
-    box-sizing: border-box;
-    background-color: #fff;
-    border-radius: 4px;
-    overflow: hidden;         /* Hide overflow so #messages scrolls, not the entire container */
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;  /* fill remaining vertical space in #right-col */
+  min-height: 0;   /* crucial so #messages can scroll instead of expanding */
+  border: 1px solid #dee2e6;
+  box-sizing: border-box;
+  background-color: #fff;
+  border-radius: 4px;
+  overflow: hidden; /* let #messages scroll internally, not this container */
 }
 
 /* Make #messages scroll instead of expanding in height */

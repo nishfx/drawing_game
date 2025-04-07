@@ -16,16 +16,17 @@
     /* no overflow here; we let #messages handle that */
 }
 
+/* The messages list: MUST stretch and allow scrolling */
 #messages {
-    list-style-type: none;
-    padding: 8px 10px;
-    margin: 0;
-    flex-grow: 1;            /* fill up vertical space */
-    min-height: 0;           /* for proper flex shrink */
-    overflow-y: auto;        /* scrollbar if needed */
-    background-color: #f8f9fa;
-    font-size: 0.9em;
-    border-bottom: 1px solid #dee2e6;
+  list-style-type: none;
+  margin: 0;
+  padding: 8px 10px;
+  flex-grow: 1;
+  min-height: 0;       /* CRITICAL: so it can shrink and scroll */
+  overflow-y: auto;    /* This is where the scrollbar shows */
+  background-color: #f8f9fa;
+  font-size: 0.9em;
+  border-bottom: 1px solid #dee2e6;
 }
 #messages li {
     padding: 4px 0;

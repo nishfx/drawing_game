@@ -2,13 +2,19 @@
 
 /* Main layout container */
 #main-layout {
-    display: flex;
-    flex-direction: row;
-    width: 100%;
-    max-width: 1300px;
-    gap: 20px;            /* So there's a consistent 20px gap between columns */
-    align-items: stretch; /* Make columns the same height */
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  max-width: 1300px;
+  gap: 20px;
+
+  /* Let items stretch to the same height: */
+  align-items: stretch;
+
+  /* Important: allow children to shrink inside if needed: */
+  min-height: 0;
 }
+
 
 /* Wrapper for word display + game area */
 #game-area-wrapper {
