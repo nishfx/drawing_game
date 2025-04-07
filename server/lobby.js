@@ -20,7 +20,7 @@ class Lobby {
 
         this.lobbyChatHistory = [];
         this.lobbyCanvasCommands = [];
-        this.maxLobbyCommands = 1000;
+        this.maxLobbyCommands = 10000000;
 
         // --- NEW: AI Request Cooldown ---
         this.lastAiRequestTime = 0;
