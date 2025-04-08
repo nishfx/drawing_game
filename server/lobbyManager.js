@@ -45,8 +45,6 @@ class LobbyManager {
 
         if (added) {
             hostSocket.emit('lobby created', { lobbyId });
-            // [CHANGED] Removed the old setTimeout broadcastSystemMessage here.
-            // We now handle "X joined the lobby" inside newLobby.addPlayer(...)
         } else {
             console.error(`Failed add host ${username} to ${lobbyId}`);
             this.lobbies.delete(lobbyId);
@@ -69,7 +67,6 @@ class LobbyManager {
             playerSocket.emit('join failed', 'Full.');
             return;
         }
-        // Check if username is taken
         if (lobby.isUsernameTakenByOther(username, playerSocket.id)) {
             playerSocket.emit('join failed', 'Username taken.');
             return;
@@ -79,8 +76,10 @@ class LobbyManager {
         const added = lobby.addPlayer(playerSocket, username, lobby.players.size === 0 /* isHost? */);
         if (added) {
             playerSocket.emit('join success', { lobbyId });
-            // [CHANGED] Removed the old setTimeout broadcastSystemMessage
-            // for "X has joined the lobby." We do that now in addPlayer(...)
+
+            // ---- NEW: register so "update-lobby-settings" is attached ----
+            lobby.registerSocketEvents(playerSocket);
+
         } else {
             console.error(`Failed add player ${username} to ${lobbyId} unexpectedly.`);
             playerSocket.emit('join failed', 'Server error during join.');
@@ -115,32 +114,24 @@ class LobbyManager {
             console.log(`Player ${username} rejoining lobby ${lobbyId}. Old sock: ${oldSocketId}, new sock: ${socket.id}`);
 
             if (oldSocketId !== socket.id) {
-                // Remove the old entry silently (don’t broadcast “left”).
                 lobby.removePlayer({ id: oldSocketId }, { silent: true });
-
-                // Re-map existing player data to this new socket
                 existingPlayer.id = socket.id;
                 existingPlayer.socket = socket;
                 lobby.players.set(socket.id, existingPlayer);
                 socket.join(lobby.id);
 
-                // “Reconnected” message instead of “left + joined”
                 lobby.broadcastSystemMessage(`${username} has reconnected.`);
             } else {
-                console.log(`Socket ID ${socket.id} is the same; just updating the reference.`);
+                console.log(`Socket ID ${socket.id} is the same; just updating reference.`);
                 existingPlayer.socket = socket;
                 socket.join(lobby.id);
             }
 
-            // Re-register
-            if (typeof lobby.registerSocketEvents === 'function') {
-                lobby.registerSocketEvents(socket);
-            }
+            lobby.registerSocketEvents(socket);
             lobby.sendLobbyState(socket);
             lobby.gameManager.broadcastGameState();
             lobby.broadcastLobbyPlayerList();
         } else {
-            // No matching username -> treat as new join
             console.log(`Player ${username} not found in ${lobbyId}, treating as fresh join.`);
             if (lobby.isFull()) {
                 socket.emit('connection rejected', 'Lobby is full.');

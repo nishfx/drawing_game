@@ -27,6 +27,7 @@
 
 /* Basic styling for message lines */
 #messages li {
+  font-size: 0.9em;
   padding: 4px 0;
   word-wrap: break-word;
 }
