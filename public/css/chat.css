@@ -2,30 +2,27 @@
 
 /* Chat area container */
 #chat-area {
-    display: flex;
-    flex-direction: column;
-    /* width: 300px;
-    /* REMOVE or comment out the fixed 250px height! */
-    /* height: 250px; */  /* <- removed so chat can expand in the free space */
-
-    border: 1px solid #dee2e6;
-    box-sizing: border-box;
-    background-color: #fff;
-    border-radius: 4px;
-    flex-shrink: 1; /* allow shrink/grow */
-    /* no overflow here; we let #messages handle that */
+  width: 300px;             /* whatever width you prefer */
+  height: 250px;            /* fixed height, no flex expansions */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;         /* so #messages can scroll within */
+  border: 1px solid #dee2e6;
+  box-sizing: border-box;
+  background-color: #fff;
+  border-radius: 4px;
 }
 
+
+/* Now #messages takes the remaining vertical space (i.e. ~250px minus chat form),
+   and scrolls if it overflows. */
 #messages {
-    list-style-type: none;
-    padding: 8px 10px;
-    margin: 0;
-    flex-grow: 1;            /* fill up vertical space */
-    min-height: 0;           /* for proper flex shrink */
-    overflow-y: auto;        /* scrollbar if needed */
-    background-color: #f8f9fa;
-    font-size: 0.9em;
-    border-bottom: 1px solid #dee2e6;
+  flex: 1;                  /* fill remaining vertical space in #chat-area */
+  overflow-y: auto;         /* scrollbar when content is too big */
+  margin: 0;
+  padding: 8px 10px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
 }
 #messages li {
     padding: 4px 0;
@@ -46,10 +43,9 @@
 
 /* Chat input form */
 #chat-form {
-    display: flex;
-    flex-shrink: 0;
-    border-top: 1px solid #dee2e6;
-    position: relative;
+  flex-shrink: 0;           /* chat form sits at bottom, doesn't expand */
+  border-top: 1px solid #dee2e6;
+  /* etc. */
 }
 #chat-input {
     flex-grow: 1;
