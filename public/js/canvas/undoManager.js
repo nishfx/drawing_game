@@ -45,8 +45,27 @@ export function undoLastAction(socket) {
         console.log(`[UNDO] Single cmdId removal: ${cmdIdToUndo}`);
     }
 
+    // First remove the main stroke or cmd
     removeCommands(idsToRemove, strokeIdToRemove, myPlayerId);
 
+    // +++ NEW: If we removed a shape stroke, also remove fill commands referencing it
+    if (strokeIdToRemove) {
+        const dependentFills = [];
+        const fullHist = getFullDrawHistory_DEBUG();
+        for (const c of fullHist) {
+            // If there's a fill that references the undone shape strokeId
+            if (c.appliedOnStrokeId === strokeIdToRemove) {
+                dependentFills.push(c.cmdId);
+            }
+        }
+        if (dependentFills.length > 0) {
+            console.log(`[UNDO] Also removing dependent fills: ${dependentFills}`);
+            // We pass null as owner so we remove them no matter who made the fill
+            removeCommands(dependentFills, null, null);
+        }
+    }
+
+    // Emit to server so it can replicate the undo
     if (socket && socket.connected) {
         socket.emit('undo last draw', undoDataForServer);
         console.log("[UNDO] Emitted to server =>", undoDataForServer);

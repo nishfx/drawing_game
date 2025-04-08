@@ -12,6 +12,9 @@ import { getEventCoords, generateStrokeId, generateCommandId } from './canvasUti
 import { executeCommand } from './drawingExecutor.js';
 import { addCommandToHistory } from './historyManager.js';
 
+// +++ NEW IMPORT: We need the full draw history to find the shape under the fill:
+import { getFullDrawHistory_DEBUG } from './historyManager.js';
+
 let startX = 0;
 let startY = 0;
 let lastX = 0;
@@ -158,9 +161,22 @@ function handleMouseDown(e) {
             const strokeId = generateStrokeId();
             const cmdId = generateCommandId();
             console.log(`[FILL] strokeId=${strokeId}, cmdId=${cmdId}, x=${x}, y=${y}, color=${col}`);
+
+            // +++ NEW: find the top stroke at (x, y), to associate this fill with a shape
+            const targetStrokeId = findTopStrokeAt(x, y);
+
             const command = {
-                cmdId, strokeId, playerId: myPlayerId, type: 'fill',
-                x, y, color: col, tool: 'fill'
+                cmdId,
+                strokeId,
+                playerId: myPlayerId,
+                type: 'fill',
+                x,
+                y,
+                color: col,
+                tool: 'fill',
+
+                // +++ This links the fill to the shape's stroke (if any)
+                appliedOnStrokeId: targetStrokeId || null,
             };
             executeCommand(command, ctx);
             addCommandToHistory(command);
@@ -254,7 +270,7 @@ function handleGlobalMouseUp(e) {
 }
 
 function handleMouseUp(e) {
-    // Let handleGlobalMouseUp do the real finishing logic
+    // Let handleGlobalMouseUp do the finishing logic
 }
 
 function finishStroke(finalX, finalY) {
@@ -267,7 +283,6 @@ function finishStroke(finalX, finalY) {
 
     if (tool === 'pencil' || tool === 'eraser') {
         // We were doing freehand lines
-        // Optionally ensure a fresh path so bridging can’t happen later
         ctx.beginPath();
         ctx.globalCompositeOperation = 'source-over';
     }
@@ -369,4 +384,29 @@ function emitCommand(command) {
     if (emitCallback && command) {
         emitCallback(command);
     }
+}
+
+// +++ NEW HELPER: find the top-most shape stroke at (x, y)
+function findTopStrokeAt(x, y) {
+    const fullHist = getFullDrawHistory_DEBUG();
+    // We'll scan backward so the last-drawn shape is considered "on top"
+    for (let i = fullHist.length - 1; i >= 0; i--) {
+        const cmd = fullHist[i];
+        // We'll treat lines, rects, ellipses as "boundaries" for the fill
+        if ((cmd.type === 'line' || cmd.type === 'rect' || cmd.type === 'ellipse') && cmd.strokeId) {
+            if (isPointInBoundingBox(x, y, cmd)) {
+                return cmd.strokeId;
+            }
+        }
+    }
+    return null;
+}
+
+function isPointInBoundingBox(px, py, cmd) {
+    // For line, rect, ellipse we have x0,y0 and x1,y1
+    const minX = Math.min(cmd.x0, cmd.x1);
+    const maxX = Math.max(cmd.x0, cmd.x1);
+    const minY = Math.min(cmd.y0, cmd.y1);
+    const maxY = Math.max(cmd.y0, cmd.y1);
+    return (px >= minX && px <= maxX && py >= minY && py <= maxY);
 }
