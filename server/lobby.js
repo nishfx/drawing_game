@@ -30,10 +30,9 @@ class Lobby {
             pointsToWin: 15
         };
 
-        // --- NEW: AI Request Cooldown ---
+        // NEW: AI Request Cooldown
         this.lastAiRequestTime = 0;
-        this.aiRequestCooldownMs = 10000; // 10 seconds
-        // --- End NEW ---
+        this.aiRequestCooldownMs = 10000; // 10s
     }
 
     // ---------- LOBBY CORE METHODS ----------
@@ -195,19 +194,9 @@ class Lobby {
     }
 
     registerSocketEvents(socket) {
-        console.log(`Registering events for ${socket.id} in lobby ${this.id}`);
+        console.log(`Registering update-lobby-settings for ${socket.id} in lobby ${this.id}`);
 
-        // Remove old listeners, to avoid duplicates
-        socket.removeAllListeners('lobby chat message');
-        socket.removeAllListeners('lobby draw');
-        socket.removeAllListeners('start game');
-        socket.removeAllListeners('player ready');
-        socket.removeAllListeners('submit vote');
-        socket.removeAllListeners('chat message');
-        socket.removeAllListeners('undo last draw');
-        socket.removeAllListeners('request ai interpretation');
-
-        // === NEW: remove old listener for update-lobby-settings, then add
+        // ---- Only remove & re-add 'update-lobby-settings'. Leave chat/draw events alone. ----
         socket.removeAllListeners('update-lobby-settings');
         socket.on('update-lobby-settings', (newSettings) => {
             // 1) Confirm the sender is host:
@@ -215,8 +204,7 @@ class Lobby {
                 socket.emit('system message', 'Only the host can change settings.');
                 return;
             }
-            // 2) Optionally validate newSettings
-            // Here, we just store them:
+            // 2) Validate or just store newSettings:
             this.currentSettings = { ...newSettings };
             console.log(`[Lobby ${this.id}] Host updated settings =>`, this.currentSettings);
             // 3) Broadcast to all players
