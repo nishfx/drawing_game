@@ -164,7 +164,7 @@
 
 #settings-window {
   width: 100%;
-  height: 250px;
+  height: 250px;        /* Keep at 250px with no scrollbar */
   border: 1px solid #ccc;
   background-color: #fff;
   border-radius: 5px;
@@ -172,7 +172,7 @@
   padding: 10px;
   margin-bottom: 10px;
   flex-shrink: 0;
-  overflow: auto;     /* If content grows, scroll inside here */
+  overflow: hidden;      /* Hide any overflow, no scrollbar */
 }
 
 /* Chat area must fill the remaining vertical space below settings */
@@ -188,22 +188,9 @@
   overflow: hidden; /* so #messages can scroll */
 }
 
-/* Make #messages scroll instead of expanding in height */
-#messages {
-  flex: 1 1 auto;
-  min-height: 0;      /* Crucial for scrolling */
-  margin: 0;
-  padding: 8px 10px;
-  overflow-y: auto;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
-}
-#messages li {
-    padding: 4px 0;
-    word-wrap: break-word;
-}
-
+/* Layout for settings form */
 #settings-form {
+    /* We’ll keep a simple column flow, but custom rows for 2-col layout. */
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -227,4 +214,27 @@
 }
 #save-settings-btn:hover {
     background-color: #0056b3;
+}
+
+/* The row classes for single or double columns */
+.settings-row.single {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 6px;
+}
+.settings-row.double {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
+}
+.settings-row.double .col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.settings-row.double select,
+.settings-row.double input {
+    width: 100%;
+    box-sizing: border-box;
 }

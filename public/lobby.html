@@ -29,7 +29,7 @@
             <ul id="player-list"></ul>
         </div>
 
-        <!-- Canvas Area (same as before) -->
+        <!-- Canvas Area -->
         <div id="lobby-canvas-area" style="position: relative;">
             <canvas id="lobby-canvas" width="600" height="450"></canvas>
             <!-- Overlay canvas is inserted here by JS -->
@@ -71,14 +71,53 @@
             <div id="settings-window">
                 <h3>Game Settings</h3>
                 <form id="settings-form">
-                    <label>Round Time (s):
-                        <input id="round-time-input" type="number" min="10" max="300" value="120" />
-                    </label>
-                    <br><br>
-                    <label>Vote Time (s):
-                        <input id="vote-time-input" type="number" min="10" max="180" value="60" />
-                    </label>
-                    <br><br>
+
+                    <!-- Single row: Game Mode -->
+                    <div class="settings-row single">
+                        <label for="game-mode-select">Game Mode</label>
+                        <select id="game-mode-select">
+                            <!-- Currently only Artist PvP is available -->
+                            <option value="artist-pvp" selected>Artist PvP</option>
+                            <!-- Future modes can be added here -->
+                        </select>
+                    </div>
+
+                    <!-- Two columns for Draw Time & Vote Time -->
+                    <div class="settings-row double">
+                        <div class="col">
+                            <label for="draw-time-select">Draw Time (s)</label>
+                            <select id="draw-time-select">
+                                <option value="300">5m</option>
+                                <option value="180">3m</option>
+                                <option value="120" selected>2m (default)</option>
+                                <option value="60">1m</option>
+                                <option value="30">30s</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label for="vote-time-select">Vote Time (s)</label>
+                            <select id="vote-time-select">
+                                <option value="60">1m</option>
+                                <option value="45" selected>45s (default)</option>
+                                <option value="30">30s</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Points to Win (alone, but can share row if you want) -->
+                    <div class="settings-row double">
+                        <div class="col">
+                            <label for="points-to-win-select">Points to Win</label>
+                            <select id="points-to-win-select">
+                                <option value="50">50</option>
+                                <option value="25">25</option>
+                                <option value="15" selected>15 (default)</option>
+                                <option value="10">10</option>
+                                <option value="5">5</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <button id="save-settings-btn" type="button">Save</button>
                 </form>
             </div>

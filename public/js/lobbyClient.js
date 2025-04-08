@@ -35,17 +35,23 @@ const undoBtn = document.getElementById('undo-btn');
 const askAiBtn = document.getElementById('ask-ai-btn');
 const aiInterpretationBox = document.getElementById('ai-interpretation-box');
 
-// NEW: Settings Window Elements
+// NEW: Updated Settings Window Elements
 const settingsWindow = document.getElementById('settings-window');
 const settingsForm = document.getElementById('settings-form');
-const roundTimeInput = document.getElementById('round-time-input');
-const voteTimeInput = document.getElementById('vote-time-input');
 const saveSettingsBtn = document.getElementById('save-settings-btn');
 
-/** Our local in-memory game settings. You'd typically sync these with the server. */
+// The newly added dropdowns:
+const gameModeSelect = document.getElementById('game-mode-select');
+const drawTimeSelect = document.getElementById('draw-time-select');
+const voteTimeSelect = document.getElementById('vote-time-select');
+const pointsToWinSelect = document.getElementById('points-to-win-select');
+
+/** Local in-memory game settings. For now, only Artist PvP with these 3. */
 let currentSettings = {
-    roundTime: 120,
-    voteTime: 60
+    gameMode: 'artist-pvp',
+    drawTime: 120,  // 2m by default
+    voteTime: 45,   // 45s by default
+    pointsToWin: 15
 };
 
 function initializeLobby() {
@@ -102,7 +108,6 @@ function setupSocketConnection(lobbyId, username) {
             console.log(`Emitting join lobby for ${lobbyId} as ${username}`);
             socket.emit('join lobby', { lobbyId, username });
         } else {
-            // Rejoin scenario
             console.log("Reconnected, rejoining lobby state.");
             socket.emit('join lobby', { lobbyId, username });
         }
@@ -350,24 +355,26 @@ function setupActionListeners() {
         });
     }
 
-    // NEW: Settings Form
+    // Save Settings
     if (saveSettingsBtn) {
         saveSettingsBtn.addEventListener('click', () => {
             if (!isHost) {
                 console.log("Ignoring settings save from non-host.");
                 return;
             }
-            // Grab form values
-            const roundVal = parseInt(roundTimeInput.value, 10) || 120;
-            const voteVal = parseInt(voteTimeInput.value, 10) || 60;
+            // Read the current dropdown values
+            const selectedGameMode = gameModeSelect.value;
+            const drawVal = parseInt(drawTimeSelect.value, 10);
+            const voteVal = parseInt(voteTimeSelect.value, 10);
+            const pointsVal = parseInt(pointsToWinSelect.value, 10);
 
-            // Typically you'd send them to the server here
-            currentSettings.roundTime = roundVal;
-            currentSettings.voteTime = voteVal;
+            currentSettings.gameMode = selectedGameMode;
+            currentSettings.drawTime = isNaN(drawVal) ? 120 : drawVal;
+            currentSettings.voteTime = isNaN(voteVal) ? 45 : voteVal;
+            currentSettings.pointsToWin = isNaN(pointsVal) ? 15 : pointsVal;
+
             console.log("Settings updated locally:", currentSettings);
-
             // In a real app, you'd do: socket.emit('update-settings', currentSettings);
-            // Then wait for server confirmation and re-broadcast.
 
             alert("Settings saved (client-only example).");
         });
@@ -423,7 +430,7 @@ function updateLobbyUI(state) {
     disableSettingsForm(!isHost);
 }
 
-// If “true,” disable the entire settings form
+// Disable or enable the entire settings form
 function disableSettingsForm(disabled) {
     if (!settingsForm) return;
     Array.from(settingsForm.elements).forEach(el => {
