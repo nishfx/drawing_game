@@ -4,7 +4,7 @@
 #chat-area {
     display: flex;
     flex-direction: column;
-    width: 300px;
+    /* width: 300px;
     /* REMOVE or comment out the fixed 250px height! */
     /* height: 250px; */  /* <- removed so chat can expand in the free space */
 

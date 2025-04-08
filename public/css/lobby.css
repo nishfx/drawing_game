@@ -179,13 +179,13 @@
 #chat-area {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;     /* Take leftover vertical space */
-  min-height: 0;      /* Allow scrolling instead of expanding */
+  flex: 1 1 auto; /* so it fills leftover vertical space below settings */
+  min-height: 0;  /* crucial for internal scrolling */
   border: 1px solid #dee2e6;
   border-radius: 4px;
   background-color: #fff;
   box-sizing: border-box;
-  overflow: hidden;   /* So #messages can scroll internally */
+  overflow: hidden; /* so #messages can scroll */
 }
 
 /* Make #messages scroll instead of expanding in height */
