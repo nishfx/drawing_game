@@ -4,7 +4,7 @@ import { getRandomColor } from './utils.js';
 import { interpretImage } from './aiService.js'; // --- NEW AI Import ---
 
 const MAX_PLAYERS_PER_LOBBY = 4;
-const MIN_PLAYERS_TO_START = 1; // Changed back to 1 for easier testing
+const MIN_PLAYERS_TO_START = 1; // For easier testing
 
 class Lobby {
     constructor(id, io, lobbyManager) {
@@ -22,13 +22,22 @@ class Lobby {
         this.lobbyCanvasCommands = [];
         this.maxLobbyCommands = 10000000;
 
+        // Default lobby settings (synced to/from clients)
+        this.currentSettings = {
+            gameMode: 'artist-pvp',
+            drawTime: 120,
+            voteTime: 45,
+            pointsToWin: 15
+        };
+
         // --- NEW: AI Request Cooldown ---
         this.lastAiRequestTime = 0;
-        this.aiRequestCooldownMs = 10000; // 10 seconds cooldown
+        this.aiRequestCooldownMs = 10000; // 10 seconds
         // --- End NEW ---
     }
 
-    // ... existing methods (addPlayer, removePlayer, etc.) ...
+    // ---------- LOBBY CORE METHODS ----------
+
     addPlayer(socket, username, isHost = false) {
         // If already in the lobby map, ignore
         if (this.players.has(socket.id)) {
@@ -48,6 +57,7 @@ class Lobby {
         this.players.set(socket.id, playerData);
         socket.join(this.id);
 
+        // Determine host
         if (isHost || !this.hostId) {
             this.hostId = socket.id;
             playerData.isHost = true;
@@ -57,8 +67,6 @@ class Lobby {
         }
 
         console.log(`[Lobby ${this.id}] ${username} (${socket.id}) added. Host? ${playerData.isHost}`);
-
-        // Immediately broadcast “X has joined the lobby.”
         this.broadcastSystemMessage(`${username} has joined the lobby.`);
 
         this.sendLobbyState(socket);
@@ -75,23 +83,22 @@ class Lobby {
         }
         const username = playerData.name;
         const wasHost = playerData.isHost;
-        const wasOnlyPlayer = (this.players.size === 1);
 
         console.log(`[Lobby ${this.id}] Removing player ${username} (${socket.id}).`);
         this.players.delete(socket.id);
         socket.leave(this.id);
 
-        // Remove player's commands
+        // Remove player's commands from lobbyCanvasCommands
         const initialCount = this.lobbyCanvasCommands.length;
         this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => cmd.playerId !== socket.id);
         console.log(`[Lobby ${this.id}] Removed ${initialCount - this.lobbyCanvasCommands.length} commands for ${username}.`);
 
         // Only broadcast “left” if not silent
         if (!opts.silent) {
-            // If the lobby was just created & is empty, we skip the message
             this.broadcastSystemMessage(`${username} has left the lobby.`);
         }
 
+        // If host left, pick a new one (the next entry in Map)
         if (wasHost && this.players.size > 0) {
             const nextHostEntry = this.players.entries().next().value;
             if (nextHostEntry) {
@@ -114,6 +121,7 @@ class Lobby {
 
         this.broadcastLobbyPlayerList();
 
+        // If a game was ongoing, but now not enough players remain, or no players remain
         if (this.gameManager.gamePhase !== 'LOBBY') {
             if (this.players.size < MIN_PLAYERS_TO_START && this.players.size > 0) {
                 console.log(`[Lobby ${this.id}] Not enough players, stopping game.`);
@@ -188,7 +196,8 @@ class Lobby {
 
     registerSocketEvents(socket) {
         console.log(`Registering events for ${socket.id} in lobby ${this.id}`);
-        // Remove old listeners
+
+        // Remove old listeners, to avoid duplicates
         socket.removeAllListeners('lobby chat message');
         socket.removeAllListeners('lobby draw');
         socket.removeAllListeners('start game');
@@ -196,8 +205,26 @@ class Lobby {
         socket.removeAllListeners('submit vote');
         socket.removeAllListeners('chat message');
         socket.removeAllListeners('undo last draw');
-        socket.removeAllListeners('request ai interpretation'); // Also remove AI listener
+        socket.removeAllListeners('request ai interpretation');
+
+        // === NEW: remove old listener for update-lobby-settings, then add
+        socket.removeAllListeners('update-lobby-settings');
+        socket.on('update-lobby-settings', (newSettings) => {
+            // 1) Confirm the sender is host:
+            if (socket.id !== this.hostId) {
+                socket.emit('system message', 'Only the host can change settings.');
+                return;
+            }
+            // 2) Optionally validate newSettings
+            // Here, we just store them:
+            this.currentSettings = { ...newSettings };
+            console.log(`[Lobby ${this.id}] Host updated settings =>`, this.currentSettings);
+            // 3) Broadcast to all players
+            this.io.to(this.id).emit('lobby-settings-updated', this.currentSettings);
+        });
     }
+
+    // ---------- CHAT & DRAWING HANDLERS ----------
 
     handleLobbyChatMessage(socket, msg) {
         const sender = this.players.get(socket.id);
@@ -231,7 +258,6 @@ class Lobby {
                     typeof drawCommand.x1 === 'number' &&
                     typeof drawCommand.y1 === 'number' &&
                     typeof drawCommand.size === 'number' &&
-                    (typeof drawCommand.color === 'string' || drawCommand.color === null || drawCommand.color === CANVAS_BACKGROUND_COLOR) && // Allow background color for eraser
                     typeof drawCommand.strokeId === 'string';
                 break;
 
@@ -276,6 +302,7 @@ class Lobby {
             return;
         }
 
+        // Special case: clear
         if (commandWithPlayer.type === 'clear') {
             const removedCmdIds = [];
             const initialLen = this.lobbyCanvasCommands.length;
@@ -296,6 +323,7 @@ class Lobby {
                 });
             }
         } else {
+            // Normal command
             this.lobbyCanvasCommands.push(commandWithPlayer);
             if (this.lobbyCanvasCommands.length > this.maxLobbyCommands) {
                 this.lobbyCanvasCommands.shift();
@@ -304,10 +332,10 @@ class Lobby {
         }
     }
 
-   handleUndoLastDraw(socket, data) {
+    handleUndoLastDraw(socket, data) {
         if (!this.players.has(socket.id)) return;
         const playerId = socket.id;
-        const { cmdIds, strokeId } = data || {}; // Client now sends cmdIds OR strokeId
+        const { cmdIds, strokeId } = data || {};
 
         if (!cmdIds && !strokeId) {
             console.warn(`[Lobby ${this.id}] Undo request missing cmdIds/strokeId from ${playerId}`);
@@ -318,42 +346,41 @@ class Lobby {
         let removedStrokeId = null;
 
         if (strokeId) {
-            // Remove all commands matching the strokeId and playerId
+            // Remove all commands matching strokeId for that player
             this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => {
                 if (cmd.strokeId === strokeId && cmd.playerId === playerId) {
                     removedCmdIds.push(cmd.cmdId);
-                    return false; // Remove this command
+                    return false;
                 }
-                return true; // Keep other commands
+                return true;
             });
             if (removedCmdIds.length > 0) {
-                removedStrokeId = strokeId; // Confirm which stroke was removed
+                removedStrokeId = strokeId;
                 console.log(`[Lobby ${this.id}] Undo stroke=${strokeId}, removed ${removedCmdIds.length} commands from ${playerId}.`);
             }
         } else if (cmdIds && Array.isArray(cmdIds) && cmdIds.length > 0) {
-            // Remove specific command IDs belonging to the player
+            // Remove specific command IDs
             const idsToRemoveSet = new Set(cmdIds);
             this.lobbyCanvasCommands = this.lobbyCanvasCommands.filter(cmd => {
                 if (idsToRemoveSet.has(cmd.cmdId) && cmd.playerId === playerId) {
                     removedCmdIds.push(cmd.cmdId);
-                    return false; // Remove this command
+                    return false;
                 }
-                return true; // Keep other commands
+                return true;
             });
-             if (removedCmdIds.length > 0) {
+            if (removedCmdIds.length > 0) {
                 console.log(`[Lobby ${this.id}] Undo single command(s)=${removedCmdIds.join(',')} by ${playerId}`);
             }
         }
 
-        // If any commands were actually removed, notify clients
         if (removedCmdIds.length > 0) {
             this.io.to(this.id).emit('lobby commands removed', {
                 cmdIds: removedCmdIds,
-                strokeId: removedStrokeId, // Send the strokeId if that's what was undone
+                strokeId: removedStrokeId,
                 playerId: playerId
             });
         } else {
-             console.warn(`[Lobby ${this.id}] Undo request from ${playerId} did not remove any commands for data:`, data);
+            console.warn(`[Lobby ${this.id}] Undo request from ${playerId} did not remove any commands for data:`, data);
         }
     }
 
@@ -375,18 +402,17 @@ class Lobby {
         setTimeout(() => this.gameManager.startGame(), 500);
     }
 
-    // --- NEW: AI Interpretation Handler ---
+    // ---------- AI INTERPRETATION ----------
     async handleRequestAiInterpretation(socket, imageDataUrl) {
-        if (!this.players.has(socket.id)) return; // Check if player is in lobby
-
-        // 1. Authorization: Only host can request
+        if (!this.players.has(socket.id)) return; // must be in lobby
+        // 1) Must be host
         if (socket.id !== this.hostId) {
             console.warn(`[Lobby ${this.id}] Non-host (${socket.id}) tried to request AI interpretation.`);
             socket.emit('ai interpretation result', { error: "Only the host can ask the AI." });
             return;
         }
 
-        // 2. Cooldown Check
+        // 2) Throttle checks
         const now = Date.now();
         if (now - this.lastAiRequestTime < this.aiRequestCooldownMs) {
             const remaining = Math.ceil((this.aiRequestCooldownMs - (now - this.lastAiRequestTime)) / 1000);
@@ -395,38 +421,38 @@ class Lobby {
             return;
         }
 
-        // 3. Basic Data Validation (Server-side)
-        if (!imageDataUrl || typeof imageDataUrl !== 'string' || !imageDataUrl.startsWith('data:image/png;base64,') || imageDataUrl.length > 2 * 1024 * 1024) { // 2MB limit
-             console.warn(`[Lobby ${this.id}] Invalid image data received for AI request from ${socket.id}. Length: ${imageDataUrl?.length}`);
-             socket.emit('ai interpretation result', { error: "Invalid or too large image data." });
-             return;
+        // 3) Data validation
+        if (!imageDataUrl ||
+            typeof imageDataUrl !== 'string' ||
+            !imageDataUrl.startsWith('data:image/png;base64,') ||
+            imageDataUrl.length > 2 * 1024 * 1024) {
+            console.warn(`[Lobby ${this.id}] Invalid image data from ${socket.id}, length=${imageDataUrl?.length}`);
+            socket.emit('ai interpretation result', { error: "Invalid or too large image data." });
+            return;
         }
 
-
         console.log(`[Lobby ${this.id}] Host (${socket.id}) requested AI interpretation.`);
-        this.lastAiRequestTime = now; // Update timestamp *before* making the async call
+        this.lastAiRequestTime = now;
 
         try {
-            // 4. Call AI Service
             const interpretation = await interpretImage(imageDataUrl);
-            // 5. Broadcast Result
             this.io.to(this.id).emit('ai interpretation result', { interpretation });
             console.log(`[Lobby ${this.id}] Broadcasted AI interpretation: "${interpretation}"`);
         } catch (error) {
-            // 6. Broadcast Error
             console.error(`[Lobby ${this.id}] AI interpretation failed:`, error);
-            // Send a generic error to clients, don't expose detailed internal errors
-            const clientError = typeof error === 'string' ? error : "The AI could not process the image.";
+            const clientError = typeof error === 'string'
+                ? error
+                : "The AI could not process the image.";
             this.io.to(this.id).emit('ai interpretation result', { error: clientError });
         }
     }
-    // --- End NEW ---
 
-
+    // Unused, but available if you want to track total players
     getPlayerCount() {
         return this.players.size;
     }
 
+    // Called if you want auto-start logic
     attemptAutoStartGame() {
         // no-op
     }
