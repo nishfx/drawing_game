@@ -35,12 +35,8 @@ const undoBtn = document.getElementById('undo-btn');
 const askAiBtn = document.getElementById('ask-ai-btn');
 const aiInterpretationBox = document.getElementById('ai-interpretation-box');
 
-// NEW: Updated Settings Window Elements
-const settingsWindow = document.getElementById('settings-window');
+// Updated Settings Window Elements
 const settingsForm = document.getElementById('settings-form');
-const saveSettingsBtn = document.getElementById('save-settings-btn');
-
-// The newly added dropdowns:
 const gameModeSelect = document.getElementById('game-mode-select');
 const drawTimeSelect = document.getElementById('draw-time-select');
 const voteTimeSelect = document.getElementById('vote-time-select');
@@ -49,8 +45,8 @@ const pointsToWinSelect = document.getElementById('points-to-win-select');
 /** Local in-memory game settings. For now, only Artist PvP with these 3. */
 let currentSettings = {
     gameMode: 'artist-pvp',
-    drawTime: 120,  // 2m by default
-    voteTime: 45,   // 45s by default
+    drawTime: 120,
+    voteTime: 45,
     pointsToWin: 15
 };
 
@@ -80,9 +76,10 @@ function initializeLobby() {
 
     setupSocketConnection(currentLobbyId, username);
     setupActionListeners();
+    attachSettingListeners();
     populateEmojiPicker();
 
-    // For now, disable the settings form by default. We'll enable it if we detect host.
+    // Disable the form by default. We'll enable it if we detect host.
     disableSettingsForm(true);
     if (askAiBtn) askAiBtn.disabled = true;
 }
@@ -354,34 +351,27 @@ function setupActionListeners() {
             socket.emit('request ai interpretation', imageDataUrl);
         });
     }
-
-    // Save Settings
-    if (saveSettingsBtn) {
-        saveSettingsBtn.addEventListener('click', () => {
-            if (!isHost) {
-                console.log("Ignoring settings save from non-host.");
-                return;
-            }
-            // Read the current dropdown values
-            const selectedGameMode = gameModeSelect.value;
-            const drawVal = parseInt(drawTimeSelect.value, 10);
-            const voteVal = parseInt(voteTimeSelect.value, 10);
-            const pointsVal = parseInt(pointsToWinSelect.value, 10);
-
-            currentSettings.gameMode = selectedGameMode;
-            currentSettings.drawTime = isNaN(drawVal) ? 120 : drawVal;
-            currentSettings.voteTime = isNaN(voteVal) ? 45 : voteVal;
-            currentSettings.pointsToWin = isNaN(pointsVal) ? 15 : pointsVal;
-
-            console.log("Settings updated locally:", currentSettings);
-            // In a real app, you'd do: socket.emit('update-settings', currentSettings);
-
-            alert("Settings saved (client-only example).");
-        });
-    }
 }
 
-// Called in multiple places to keep UI consistent
+/** Attach event listeners so that changes to the dropdowns apply immediately. */
+function attachSettingListeners() {
+    function autoUpdateSettings() {
+        if (!isHost) return;
+        currentSettings.gameMode = gameModeSelect.value;
+        currentSettings.drawTime = parseInt(drawTimeSelect.value, 10) || 120;
+        currentSettings.voteTime = parseInt(voteTimeSelect.value, 10) || 45;
+        currentSettings.pointsToWin = parseInt(pointsToWinSelect.value, 10) || 15;
+        console.log("Settings updated automatically:", currentSettings);
+        // In a real app, you'd send them to the server here: socket.emit('update-settings', currentSettings)
+    }
+
+    [gameModeSelect, drawTimeSelect, voteTimeSelect, pointsToWinSelect].forEach(el => {
+        if (el) {
+            el.addEventListener('change', autoUpdateSettings);
+        }
+    });
+}
+
 function updateLobbyUI(state) {
     const players = state.players || PlayerListUI.getPlayersFromList();
     const playerCount = players.length;
@@ -426,22 +416,14 @@ function updateLobbyUI(state) {
         askAiBtn.disabled = !isHost;
     }
 
-    // Enable or disable settings form
     disableSettingsForm(!isHost);
 }
 
-// Disable or enable the entire settings form
 function disableSettingsForm(disabled) {
     if (!settingsForm) return;
     Array.from(settingsForm.elements).forEach(el => {
-        if (el.id !== 'save-settings-btn') {
-            el.disabled = disabled;
-        }
+        el.disabled = disabled;
     });
-    // Optionally hide the Save button if not host
-    if (saveSettingsBtn) {
-        saveSettingsBtn.style.display = disabled ? 'none' : 'inline-block';
-    }
 }
 
 function populateEmojiPicker() {

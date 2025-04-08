@@ -169,10 +169,16 @@
   background-color: #fff;
   border-radius: 5px;
   box-sizing: border-box;
-  padding: 10px;
+  padding: 6px 10px;    /* Moved title up with top:6px */
   margin-bottom: 10px;
   flex-shrink: 0;
-  overflow: hidden;      /* Hide any overflow, no scrollbar */
+  overflow: hidden;     /* Hide any overflow, no scrollbar */
+}
+
+/* Slightly reduce spacing for "Game Settings" title */
+#settings-window h3 {
+  margin: 0 0 5px;
+  font-size: 1.1em;
 }
 
 /* Chat area must fill the remaining vertical space below settings */
@@ -190,11 +196,10 @@
 
 /* Layout for settings form */
 #settings-form {
-    /* We’ll keep a simple column flow, but custom rows for 2-col layout. */
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin-top: 5px;
+    margin-top: 0; /* reduce extra top spacing */
 }
 #settings-form label {
     font-size: 0.9em;
@@ -203,30 +208,17 @@
     flex-direction: column;
     gap: 3px;
 }
-#save-settings-btn {
-    align-self: flex-start;
-    padding: 8px 16px;
-    border: none;
-    background-color: #007bff;
-    color: #fff;
-    border-radius: 4px;
-    cursor: pointer;
-}
-#save-settings-btn:hover {
-    background-color: #0056b3;
-}
 
 /* The row classes for single or double columns */
 .settings-row.single {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 6px;
+    margin-bottom: 5px; /* reduce spacing */
 }
 .settings-row.double {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     gap: 10px;
+    margin-bottom: 5px; /* reduce spacing */
 }
 .settings-row.double .col {
     flex: 1;
