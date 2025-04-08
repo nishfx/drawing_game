@@ -1,34 +1,30 @@
 /* public/css/chat.css */
 
-/* Entire chat container with fixed width & height */
+/* Fixed-size chat box */
 #chat-area {
-  width: 300px;               /* fixed width */
-  height: 250px;              /* fixed height */
+  width: 300px;
+  height: 250px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;           /* #messages scrolls inside, not the container */
+  overflow: hidden; /* #messages scrolls inside, not the container */
   border: 1px solid #dee2e6;
   box-sizing: border-box;
   background-color: #fff;
   border-radius: 4px;
 }
 
-/* The scrolling message list */
+/* The scrolling messages list */
 #messages {
-  flex: 1;                    /* fill leftover vertical space */
-  overflow-y: auto;           /* scrollbar appears when content is too big */
+  flex: 1;              /* fill leftover vertical space */
+  overflow-y: auto;     /* scroll if too many messages */
   margin: 0;
-  padding: 8px 10px;
+  padding: 6px 8px;     /* slightly smaller padding */
   background-color: #f8f9fa;
   border-bottom: 1px solid #dee2e6;
 }
-
 #messages li {
   padding: 4px 0;
   word-wrap: break-word;
-}
-#messages li[style*="italic"] {
-  color: #6c757d;
 }
 #messages li.correct-guess {
   font-weight: bold;
@@ -40,42 +36,42 @@
   border-left: 3px solid #28a745;
 }
 
-/* The chat input form at the bottom */
+/* The chat input & buttons row */
 #chat-form {
   display: flex;
-  align-items: center;        /* vertically center input & buttons */
-  gap: 5px;                   /* small horizontal spacing */
-  padding: 5px;
+  align-items: center;
+  padding: 4px;         /* reduced padding so everything fits */
   border-top: 1px solid #dee2e6;
-  flex-shrink: 0;            /* do not shrink the form */
+  flex-shrink: 0;
   margin: 0;
 }
 
-/* The text field grows to fill remaining space in the form row */
+/* The text field (reduce horizontal padding) */
 #chat-input {
-  flex: 1;
-  height: 38px;              /* match button height for alignment */
+  flex: 1;              /* fill leftover horizontal space */
+  height: 34px;         /* slightly smaller height */
   margin: 0;
-  padding: 0 10px;
+  padding: 0 6px;       /* narrower left-right padding */
   border: 1px solid #ccc;
   border-radius: 4px;
-  font-size: 0.9em;
+  font-size: 0.85em;    /* slightly smaller font if needed */
   box-sizing: border-box;
 }
 
-/* Buttons: same height as input, center text/icon */
+/* Buttons: narrower horizontal padding */
 #chat-form button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 38px;
-  padding: 0 12px;
+  height: 34px;         /* same height as #chat-input */
+  padding: 0 8px;       /* narrower horizontal padding */
   border: none;
   cursor: pointer;
   color: #fff;
-  font-size: 0.9em;
+  font-size: 0.85em;    /* match input font */
   border-radius: 4px;
   transition: background-color 0.2s ease;
+  margin-left: 4px;     /* small space between input & button(s) */
 }
 
 /* Emoji button (gray) */
