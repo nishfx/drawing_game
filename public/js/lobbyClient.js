@@ -35,7 +35,7 @@ const undoBtn = document.getElementById('undo-btn');
 const askAiBtn = document.getElementById('ask-ai-btn');
 const aiInterpretationBox = document.getElementById('ai-interpretation-box');
 
-// Updated Settings Window Elements
+// Settings Form Elements
 const settingsForm = document.getElementById('settings-form');
 const gameModeSelect = document.getElementById('game-mode-select');
 const drawTimeSelect = document.getElementById('draw-time-select');
@@ -45,8 +45,8 @@ const pointsToWinSelect = document.getElementById('points-to-win-select');
 /** Local in-memory game settings. For now, only Artist PvP with these 3. */
 let currentSettings = {
     gameMode: 'artist-pvp',
-    drawTime: 120,
-    voteTime: 45,
+    drawTime: 120,  // 2m
+    voteTime: 45,   // 45s
     pointsToWin: 15
 };
 
@@ -158,6 +158,7 @@ function setupSocketConnection(lobbyId, username) {
         }
     });
 
+    // Lobby state includes player list, chat history, maybe phase
     socket.on('lobby state', state => {
         console.log('Received lobby state:', state);
         if (!myPlayerId) myPlayerId = socket.id;
@@ -240,6 +241,15 @@ function setupSocketConnection(lobbyId, username) {
             }
             aiInterpretationBox.placeholder = "AI interpretation will appear here...";
         }
+    });
+
+    // === NEW: Listen for server's "lobby-settings-updated" ===
+    socket.on('lobby-settings-updated', (newSettings) => {
+        console.log("[Settings] Received updated settings from server:", newSettings);
+        // Overwrite local settings
+        currentSettings = { ...newSettings };
+        // Update UI so the dropdowns reflect the latest
+        syncSettingsUI(currentSettings);
     });
 }
 
@@ -353,7 +363,7 @@ function setupActionListeners() {
     }
 }
 
-/** Attach event listeners so that changes to the dropdowns apply immediately. */
+/** When the host changes a dropdown, automatically emit updated settings to the server. */
 function attachSettingListeners() {
     function autoUpdateSettings() {
         if (!isHost) return;
@@ -361,8 +371,13 @@ function attachSettingListeners() {
         currentSettings.drawTime = parseInt(drawTimeSelect.value, 10) || 120;
         currentSettings.voteTime = parseInt(voteTimeSelect.value, 10) || 45;
         currentSettings.pointsToWin = parseInt(pointsToWinSelect.value, 10) || 15;
-        console.log("Settings updated automatically:", currentSettings);
-        // In a real app, you'd send them to the server here: socket.emit('update-settings', currentSettings)
+
+        console.log("[Settings] Host changed settings:", currentSettings);
+
+        // Emit to server so it can broadcast to all players
+        if (socket && socket.connected) {
+            socket.emit('update-lobby-settings', currentSettings);
+        }
     }
 
     [gameModeSelect, drawTimeSelect, voteTimeSelect, pointsToWinSelect].forEach(el => {
@@ -370,6 +385,16 @@ function attachSettingListeners() {
             el.addEventListener('change', autoUpdateSettings);
         }
     });
+}
+
+/** Update the local UI dropdowns from given settings (so all clients stay in sync). */
+function syncSettingsUI(newSettings) {
+    if (!newSettings) return;
+    // Overwrite the dropdown values so we see the same as the host
+    if (gameModeSelect) gameModeSelect.value = newSettings.gameMode || 'artist-pvp';
+    if (drawTimeSelect) drawTimeSelect.value = String(newSettings.drawTime || 120);
+    if (voteTimeSelect) voteTimeSelect.value = String(newSettings.voteTime || 45);
+    if (pointsToWinSelect) pointsToWinSelect.value = String(newSettings.pointsToWin || 15);
 }
 
 function updateLobbyUI(state) {
