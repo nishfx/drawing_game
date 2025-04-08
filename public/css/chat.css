@@ -1,27 +1,31 @@
 /* public/css/chat.css */
 
-/* Fixed-size chat box */
+/* Fixed-size chat container */
 #chat-area {
   width: 300px;
   height: 250px;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* #messages scrolls inside, not the container */
   border: 1px solid #dee2e6;
-  box-sizing: border-box;
-  background-color: #fff;
   border-radius: 4px;
+  background-color: #fff;
+  box-sizing: border-box;
+
+  /* IMPORTANT: remove overflow: hidden so emoji menu won't be clipped */
+  overflow: visible;
 }
 
-/* The scrolling messages list */
+/* Messages area: scrolls internally */
 #messages {
-  flex: 1;              /* fill leftover vertical space */
-  overflow-y: auto;     /* scroll if too many messages */
+  flex: 1;
+  overflow-y: auto;      /* This is where new messages scroll */
   margin: 0;
-  padding: 6px 8px;     /* slightly smaller padding */
+  padding: 8px 10px;
   background-color: #f8f9fa;
   border-bottom: 1px solid #dee2e6;
 }
+
+/* Basic styling for message lines */
 #messages li {
   padding: 4px 0;
   word-wrap: break-word;
@@ -36,56 +40,82 @@
   border-left: 3px solid #28a745;
 }
 
-/* The chat input & buttons row */
+/* Chat form: anchored at bottom, single row with input & buttons */
 #chat-form {
   display: flex;
   align-items: center;
-  padding: 4px;         /* reduced padding so everything fits */
+  padding: 5px;
   border-top: 1px solid #dee2e6;
   flex-shrink: 0;
+
+  /* KEY: position: relative so the emoji picker can be absolutely placed */
+  position: relative;
   margin: 0;
 }
 
-/* The text field (reduce horizontal padding) */
+/* The text box grows to fill leftover space in the form row */
 #chat-input {
-  flex: 1;              /* fill leftover horizontal space */
-  height: 34px;         /* slightly smaller height */
+  flex: 1;
+  height: 34px;
   margin: 0;
-  padding: 0 6px;       /* narrower left-right padding */
+  padding: 0 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  font-size: 0.85em;    /* slightly smaller font if needed */
+  font-size: 0.9em;
   box-sizing: border-box;
 }
 
-/* Buttons: narrower horizontal padding */
+/* Buttons sized to match input */
 #chat-form button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 34px;         /* same height as #chat-input */
-  padding: 0 8px;       /* narrower horizontal padding */
+  height: 34px;
+  padding: 0 10px;
+  margin-left: 5px;
   border: none;
   cursor: pointer;
   color: #fff;
-  font-size: 0.85em;    /* match input font */
+  font-size: 0.9em;
   border-radius: 4px;
   transition: background-color 0.2s ease;
-  margin-left: 4px;     /* small space between input & button(s) */
 }
-
-/* Emoji button (gray) */
 #emoji-btn {
   background: #6c757d;
 }
 #emoji-btn:hover {
   background: #5a6268;
 }
-
-/* Send button (blue) */
 #send-btn {
   background: #007bff;
 }
 #send-btn:hover {
   background: #0056b3;
+}
+
+/* The emoji picker is absolutely placed inside the form */
+#emoji-picker {
+  display: none;             /* shown dynamically on click */
+  position: absolute;        /* anchored relative to #chat-form */
+  bottom: 100%;              /* appear above the form */
+  right: 0;
+  margin-bottom: 5px;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  width: 280px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+}
+#emoji-picker span {
+  display: inline-block;
+  padding: 5px;
+  font-size: 1.4em;
+  cursor: pointer;
+  border-radius: 4px;
+}
+#emoji-picker span:hover {
+  background-color: #eee;
 }
