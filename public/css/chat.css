@@ -1,86 +1,95 @@
 /* public/css/chat.css */
 
-/* Chat area container */
+/* Entire chat container with fixed width & height */
 #chat-area {
-  width: 300px;             /* whatever width you prefer */
-  height: 250px;            /* fixed height, no flex expansions */
+  width: 300px;               /* fixed width */
+  height: 250px;              /* fixed height */
   display: flex;
   flex-direction: column;
-  overflow: hidden;         /* so #messages can scroll within */
+  overflow: hidden;           /* #messages scrolls inside, not the container */
   border: 1px solid #dee2e6;
   box-sizing: border-box;
   background-color: #fff;
   border-radius: 4px;
 }
 
-
-/* Now #messages takes the remaining vertical space (i.e. ~250px minus chat form),
-   and scrolls if it overflows. */
+/* The scrolling message list */
 #messages {
-  flex: 1;                  /* fill remaining vertical space in #chat-area */
-  overflow-y: auto;         /* scrollbar when content is too big */
+  flex: 1;                    /* fill leftover vertical space */
+  overflow-y: auto;           /* scrollbar appears when content is too big */
   margin: 0;
   padding: 8px 10px;
   background-color: #f8f9fa;
   border-bottom: 1px solid #dee2e6;
 }
+
 #messages li {
-    padding: 4px 0;
-    word-wrap: break-word;
+  padding: 4px 0;
+  word-wrap: break-word;
 }
 #messages li[style*="italic"] {
-    color: #6c757d;
+  color: #6c757d;
 }
 #messages li.correct-guess {
-    font-weight: bold;
-    color: #155724;
-    background-color: #d4edda;
-    padding: 5px 8px;
-    border-radius: 3px;
-    margin: 2px 0;
-    border-left: 3px solid #28a745;
+  font-weight: bold;
+  color: #155724;
+  background-color: #d4edda;
+  padding: 5px 8px;
+  border-radius: 3px;
+  margin: 2px 0;
+  border-left: 3px solid #28a745;
 }
 
-/* Chat input form */
+/* The chat input form at the bottom */
 #chat-form {
-  flex-shrink: 0;           /* chat form sits at bottom, doesn't expand */
+  display: flex;
+  align-items: center;        /* vertically center input & buttons */
+  gap: 5px;                   /* small horizontal spacing */
+  padding: 5px;
   border-top: 1px solid #dee2e6;
-  /* etc. */
+  flex-shrink: 0;            /* do not shrink the form */
+  margin: 0;
 }
+
+/* The text field grows to fill remaining space in the form row */
 #chat-input {
-    flex-grow: 1;
-    border: none;
-    padding: 10px;
-    font-size: 0.9em;
-    min-width: 0;
-    border-bottom-left-radius: 4px;
+  flex: 1;
+  height: 38px;              /* match button height for alignment */
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9em;
+  box-sizing: border-box;
 }
-#chat-input:focus {
-    outline: none;
-    box-shadow: inset 0 0 3px rgba(0, 123, 255, 0.5);
-}
+
+/* Buttons: same height as input, center text/icon */
 #chat-form button {
-    flex-shrink: 0;
-    background: #007bff;
-    border: none;
-    padding: 10px 15px;
-    color: white;
-    cursor: pointer;
-    font-size: 0.9em;
-    transition: background-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 12px;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  font-size: 0.9em;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
 }
-#chat-form button#send-btn {
-    border-bottom-right-radius: 4px;
+
+/* Emoji button (gray) */
+#emoji-btn {
+  background: #6c757d;
 }
-#chat-form button#emoji-btn {
-    background: #6c757d;
-    padding: 10px;
-    font-size: 1.1em;
-    line-height: 1;
+#emoji-btn:hover {
+  background: #5a6268;
 }
-#chat-form button:hover {
-    background: #0056b3;
+
+/* Send button (blue) */
+#send-btn {
+  background: #007bff;
 }
-#chat-form button#emoji-btn:hover {
-    background: #5a6268;
+#send-btn:hover {
+  background: #0056b3;
 }
